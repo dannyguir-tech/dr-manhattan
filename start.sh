@@ -1,3 +1,3 @@
 #!/bin/sh
 printenv > .env
-exec uv run drmanhattan/mcp/server_sse.py
+exec uv run dr_manhattan/mcp/server_sse.py
