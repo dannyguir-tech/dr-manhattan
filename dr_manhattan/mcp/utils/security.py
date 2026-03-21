@@ -1,1 +1,366 @@
-IiIiU2VjdXJpdHkgdXRpbGl0aWVzIGZvciBNQ1Agc2VydmVyLgoKUHJvdmlkZXMgZnVuY3Rpb25zIGZvciBoYW5kbGluZyBzZW5zaXRpdmUgZGF0YSBzYWZlbHkgaW4gcmVtb3RlIE1DUCBlbnZpcm9ubWVudHMuCiIiIgoKaW1wb3J0IG9zCmltcG9ydCByZQppbXBvcnQgdGltZQpmcm9tIHR5cGluZyBpbXBvcnQgQW55LCBEaWN0LCBMaXN0LCBPcHRpb25hbAoKZnJvbSBldGhfYWNjb3VudC5tZXNzYWdlcyBpbXBvcnQgZW5jb2RlX2RlZnVuY3QKZnJvbSB3ZWIzIGltcG9ydCBXZWIzCgojIFNlbnNpdGl2ZSBoZWFkZXIgbmFtZXMgdGhhdCBzaG91bGQgbmV2ZXIgYmUgbG9nZ2VkClNFTlNJVElWRV9IRUFERVJTOiBMaXN0W3N0cl0gPSBbCiAgICAjIFBvbHltYXJrZXQgKEJ1aWxkZXIgcHJvZmlsZSAtIG5vIHByaXZhdGUga2V5IG5lZWRlZCkKICAgICJ4LXBvbHltYXJrZXQtYXBpLWtleSIsCiAgICAieC1wb2x5bWFya2V0LWFwaS1zZWNyZXQiLAogICAgIngtcG9seW1hcmtldC1wYXNzcGhyYXNlIiwKICAgICMgT3BlcmF0b3IgbW9kZSBhdXRoZW50aWNhdGlvbgogICAgIngtcG9seW1hcmtldC1hdXRoLXNpZ25hdHVyZSIsCiAgICAjIEdlbmVyaWMKICAgICJhdXRob3JpemF0aW9uIiwKICAgICJ4LWFwaS1rZXkiLApdCgojIEhlYWRlciB0byBjcmVkZW50aWFsIG1hcHBpbmcgZm9yIGVhY2ggZXhjaGFuZ2UKIyBTU0Ugc2VydmVyIHN1cHBvcnRzIFBvbHltYXJrZXQgdmlhOgojIDEuIE9wZXJhdG9yIG1vZGU6IHVzZXIgcHJvdmlkZXMgd2FsbGV0IGFkZHJlc3MgKyBzaWduYXR1cmUsIHNlcnZlciBzaWducyBvbiBiZWhhbGYKIyAyLiBCdWlsZGVyIHByb2ZpbGU6IHVzZXIgcHJvdmlkZXMgYXBpX2tleSwgYXBpX3NlY3JldCwgYXBpX3Bhc3NwaHJhc2UKSEVBREVSX0NSRURFTlRJQUxfTUFQOiBEaWN0W3N0ciwgRGljdFtzdHIsIHN0cl1dID0gewogICAgInBvbHltYXJrZXQiOiB7CiAgICAgICAgIyBPcGVyYXRvciBtb2RlIChwcmVmZXJyZWQgZm9yIFNTRSkgLSByZXF1aXJlcyBzaWduYXR1cmUgZm9yIHNlY3VyaXR5CiAgICAgICAgIngtcG9seW1hcmtldC13YWxsZXQtYWRkcmVzcyI6ICJ1c2VyX2FkZHJlc3MiLAogICAgICAgICJ4LXBvbHltYXJrZXQtYXV0aC1zaWduYXR1cmUiOiAiYXV0aF9zaWduYXR1cmUiLAogICAgICAgICJ4LXBvbHltYXJrZXQtYXV0aC10aW1lc3RhbXAiOiAiYXV0aF90aW1lc3RhbXAiLAogICAgICAgICJ4LXBvbHltYXJrZXQtYXV0aC1leHBpcnkiOiAiYXV0aF9leHBpcnkiLAogICAgICAgICMgQnVpbGRlciBwcm9maWxlIChhbHRlcm5hdGl2ZSkKICAgICAgICAieC1wb2x5bWFya2V0LWFwaS1rZXkiOiAiYXBpX2tleSIsCiAgICAgICAgIngtcG9seW1hcmtldC1hcGktc2VjcmV0IjogImFwaV9zZWNyZXQiLAogICAgICAgICJ4LXBvbHltYXJrZXQtcGFzc3BocmFzZSI6ICJhcGlfcGFzc3BocmFzZSIsCiAgICB9LAp9CgojIEF1dGhlbnRpY2F0aW9uIG1lc3NhZ2UgcHJlZml4IChtdXN0IG1hdGNoIGZyb250ZW5kKQpBVVRIX01FU1NBR0VfUFJFRklYID0gIkkgYXV0aG9yaXplIERyLiBNYW5oYXR0YW4gdG8gdHJhZGUgb24gUG9seW1hcmtldCBvbiBteSBiZWhhbGYuIgoKIyBEZWZhdWx0IHNpZ25hdHVyZSB2YWxpZGl0eSAoMjQgaG91cnMpIC0gY2FuIGJlIG92ZXJyaWRkZW4gYnkgdXNlcgpERUZBVUxUX1NJR05BVFVSRV9WQUxJRElUWV9TRUNPTkRTID0gODY0MDAKCiMgTWF4aW11bSBhbGxvd2VkIGV4cGlyeSAoOTAgZGF5cykgLSBzZWN1cml0eSBsaW1pdApNQVhfU0lHTkFUVVJFX1ZBTElESVRZX1NFQ09ORFMgPSA3Nzc2MDAwCgojIEFsbG93ZWQgZXhwaXJ5IG9wdGlvbnMgKG11c3QgbWF0Y2ggZnJvbnRlbmQpCkFMTE9XRURfRVhQSVJZX09QVElPTlMgPSBbODY0MDAsIDYwNDgwMCwgMjU5MjAwMCwgNzc3NjAwMF0gICMgMjRoLCA3ZCwgMzBkLCA5MGQKCiMgV3JpdGUgb3BlcmF0aW9ucyB0aGF0IG1vZGlmeSBzdGF0ZSAocmVxdWlyZSBjcmVkZW50aWFscykKV1JJVEVfT1BFUkFUSU9OUzogTGlzdFtzdHJdID0gWwogICAgImNyZWF0ZV9vcmRlciIsCiAgICAiY2FuY2VsX29yZGVyIiwKICAgICJjYW5jZWxfYWxsX29yZGVycyIsCiAgICAiY3JlYXRlX3N0cmF0ZWd5X3Nlc3Npb24iLAogICAgInN0b3Bfc3RyYXRlZ3kiLAogICAgInBhdXNlX3N0cmF0ZWd5IiwKICAgICJyZXN1bWVfc3RyYXRlZ3kiLApdCgojIEV4Y2hhbmdlcyB0aGF0IHN1cHBvcnQgd3JpdGUgb3BlcmF0aW9ucyB2aWEgU1NFIChCdWlsZGVyIHByb2ZpbGUpClNTRV9XUklURV9FTkFCTEVEX0VYQ0hBTkdFUzogTGlzdFtzdHJdID0gWyJwb2x5bWFya2V0Il0KCiMgUGF0dGVybnMgdGhhdCBsb29rIGxpa2UgcHJpdmF0ZSBrZXlzIG9yIHNlbnNpdGl2ZSBkYXRhClNFTlNJVElWRV9QQVRURVJOUyA9IFsKICAgIHJlLmNvbXBpbGUociIweFs5YTFBVFV1VHRTc1N3eVl5WnpaekZ4WFhuTjBBNEI0YkJoSGlJal1dezY0fSIpLCAgIyBFdGhlcmV1bSBwcml2YXRlIGtleQogICAgcmUuY29tcGlsZShyIls5YTFBVFV1VHRTc1N3eVl5WnpaekZ4WFhuTjBBNEI0YkJoSGlJal1dezY0fSIpLCAgIyBSYXcgaGV4IGtleQogICAgcmUuY29tcGlsZShyIi0tLS0tQkVHSU4uKlBSSVZBVEUgS0VZLS0tLS0iKSwgICMgUlNBL0VDIHByaXZhdGUga2V5Cl0KCgpkZWYgaXNfc2Vuc2l0aXZlX2hlYWRlcihoZWFkZXJfbmFtZTogc3RyKSAtPiBib29sOgogICAgIiIiQ2hlY2sgaWYgYSBoZWFkZXIgbmFtZSBpcyBzZW5zaXRpdmUuIiIiCiAgICByZXR1cm4gaGVhZGVyX25hbWUubG93ZXIoKSBpbiBTRU5TSVRJVkVfSEVBREVSUwoKCmRlZiBzYW5pdGl6ZV9oZWFkZXJzX2Zvcl9sb2dnaW5nKGhlYWRlcnM6IERpY3Rbc3RyLCBzdHJdKSAtPiBEaWN0W3N0ciwgc3RyXToKICAgICIiIgogICAgU2FuaXRpemUgaGVhZGVycyBmb3Igc2FmZSBsb2dnaW5nLgoKICAgIFJlcGxhY2VzIHNlbnNpdGl2ZSBoZWFkZXIgdmFsdWVzIHdpdGggZnVsbHkgbWFza2VkIHBsYWNlaG9sZGVycy4KICAgIERvZXMgTk9UIGV4cG9zZSBhbnkgY2hhcmFjdGVycyB0byBwcmV2ZW50IGJydXRlIGZvcmNlIGhpbnRzLgoKICAgIEFyZ3M6CiAgICAgICAgaGVhZGVyczogT3JpZ2luYWwgaGVhZGVycyBkaWN0CgogICAgUmV0dXJuczoKICAgICAgICBIZWFkZXJzIGRpY3Qgd2l0aCBzZW5zaXRpdmUgdmFsdWVzIGZ1bGx5IG1hc2tlZAogICAgIiIiCiAgICBzYW5pdGl6ZWQgPSB7fQogICAgZm9yIGtleSwgdmFsdWUgaW4gaGVhZGVycy5pdGVtcygpOgogICAgICAgIGlmIGlzX3NlbnNpdGl2ZV9oZWFkZXIoa2V5KToKICAgICAgICAgICAgIyBGdWxseSBtYXNrIC0gZG8gbm90IGV4cG9zZSBhbnkgY2hhcmFjdGVycyAoc2VjdXJpdHkgYmVzdCBwcmFjdGljZSkKICAgICAgICAgICAgc2FuaXRpemVkW2tleV0gPSAiW1JFREFDVEVEXX0iIGlmIHZhbHVlIGVsc2UgIltFTVBUWV0iCiAgICAgICAgZWxzZToKICAgICAgICAgICAgc2FuaXRpemVkW2tleV0gPSB2YWx1ZQogICAgcmV0dXJuIHNhbml0aXplZAoKCmRlZiBzYW5pdGl6ZV9lcnJvcl9tZXNzYWdlKG1lc3NhZ2U6IHN0cikgLT4gc3RyOgogICAgIiIiCiAgICBSZW1vdmUgc2Vuc2l0aXZlIGRhdGEgZnJvbSBlcnJvciBtZXNzYWdlcy4KCiAgICBBcmdzOgogICAgICAgIG1lc3NhZ2U6IE9yaWdpbmFsIGVycm9yIG1lc3NhZ2UKCiAgICBSZXR1cm5zOgogICAgICAgIE1lc3NhZ2Ugd2l0aCBzZW5zaXRpdmUgcGF0dGVybnMgcmVwbGFjZWQKICAgICIiIgogICAgcmVzdWx0ID0gbWVzc2FnZQogICAgZm9yIHBhdHRlcm4gaW4gU0VOU0lUSVZFX1BBVFRFUk5TOgogICAgICAgIHJlc3VsdCA9IHBhdHRlcm4uc3ViKCJbUkVEQUNURURdIiwgcmVzdWx0KQogICAgcmV0dXJuIHJlc3VsdAoKCmRlZiBnZXRfY3JlZGVudGlhbHNfZnJvbV9oZWFkZXJzKGhlYWRlcnM6IERpY3Rbc3RyLCBzdHJdKSAtPiBEaWN0W3N0ciwgRGljdFtzdHIsIEFueV1dOgogICAgIiIiCiAgICBFeHRyYWN0IGV4Y2hhbmdlIGNyZWRlbnRpYWxzIGZyb20gSFRUUCBoZWFkZXJzLgoKICAgIEhlYWRlcnMgYXJlIGV4cGVjdGVkIGluIGZvcm1hdDogWC17RXhjaGFuZ2V9LXtDcmVkZW50aWFsfQogICAgZS5nLiwgWC1Qb2x5bWFya2V0LVByaXZhdGUtS2V5LCBYLU1pbWl0bGVzcy1Qcml2YXRlLUtleQoKICAgIEZhbGxzIGJhY2sgdG8gZW52aXJvbm1lbnQgdmFyaWFibGVzIEJVSUxERVJfQVBJX0tFWSwgQlVJTERFUl9TRUNSRVQsCiAgICBhbmQgQlVJTERFUl9QQVNTX1BIUkFTRSBpZiB0aGUgY29ycmVzcG9uZGluZyBoZWFkZXJzIGFyZSBub3QgcHJlc2VudC4KCiAgICBBcmdzOgogICAgICAgIGhlYWRlcnM6IEhUVFAgaGVhZGVycyBkaWN0IChjYXNlLWluc2Vuc2l0aXZlIGtleXMpCgogICAgUmV0dXJuczoKICAgICAgICBDcmVkZW50aWFscyBkaWN0IGtleWVkIGJ5IGV4Y2hhbmdlIG5hbWUKICAgICIiIgogICAgIyBOb3JtYWxpemUgaGVhZGVyIGtleXMgdG8gbG93ZXJjYXNlCiAgICBub3JtYWxpemVkX2hlYWRlcnMgPSB7ay5sb3dlcigpOiB2IGZvciBrLCB2IGluIGhlYWRlcnMuaXRlbXMoKX0KCiAgICBjcmVkZW50aWFsczogRGljdFtzdHIsIERpY3Rbc3RyLCBBbnldXSA9IHt9CgogICAgZm9yIGV4Y2hhbmdlLCBoZWFkZXJfbWFwIGluIEhFQURFUl9DUkVERU5USUFMX01BUC5pdGVtcygpOgogICAgICAgIGV4Y2hhbmdlX2NyZWRzOiBEaWN0W3N0ciwgQW55XSA9IHt9CgogICAgICAgIGZvciBoZWFkZXJfbmFtZSwgY3JlZF9rZXkgaW4gaGVhZGVyX21hcC5pdGVtcygpOgogICAgICAgICAgICB2YWx1ZSA9IG5vcm1hbGl6ZWRfaGVhZGVycy5nZXQoaGVhZGVyX25hbWUpCgogICAgICAgICAgICAjIEZhbGwgYmFjayB0byBlbnZpcm9ubWVudCB2YXJpYWJsZXMgZm9yIGJ1aWxkZXIgY3JlZGVudGlhbHMKICAgICAgICAgICAgaWYgbm90IHZhbHVlOgogICAgICAgICAgICAgICAgaWYgY3JlZF9rZXkgPT0gImFwaV9rZXkiOgogICAgICAgICAgICAgICAgICAgIHZhbHVlID0gb3MuZW52aXJvbi5nZXQoIkJVSUxERVJfQVBJX0tFWSIpCiAgICAgICAgICAgICAgICBlbGlmIGNyZWRfa2V5ID09ICJhcGlfc2VjcmV0IjoKICAgICAgICAgICAgICAgICAgICB2YWx1ZSA9IG9zLmVudmlyb24uZ2V0KCJCVUlMREVSX1NFQ1JFVCIpCiAgICAgICAgICAgICAgICBlbGlmIGNyZWRfa2V5ID09ICJhcGlfcGFzc3BocmFzZSI6CiAgICAgICAgICAgICAgICAgICAgdmFsdWUgPSBvcy5lbnZpcm9uLmdldCgiQlVJTERFUl9QQVNTX1BIUkFTRSIpCgogICAgICAgICAgICBpZiB2YWx1ZToKICAgICAgICAgICAgICAgICMgSGFuZGxlIHR5cGUgY29udmVyc2lvbiBmb3Igc3BlY2lmaWMgZmllbGRzCiAgICAgICAgICAgICAgICBpZiBjcmVkX2tleSA9PSAic2lnbmF0dXJlX3R5cGUiOgogICAgICAgICAgICAgICAgICAgIHRyeToKICAgICAgICAgICAgICAgICAgICAgICAgZXhjaGFuZ2VfY3JlZHNbY3JlZF9rZXldID0gaW50KHZhbHVlKQogICAgICAgICAgICAgICAgICAgIGV4Y2VwdCBWYWx1ZUVycm9yOgogICAgICAgICAgICAgICAgICAgICAgICBleGNoYW5nZV9jcmVkc1tjcmVkX2tleV0gPSAwICAjIERlZmF1bHQgRU9BCiAgICAgICAgICAgICAgICBlbHNlOgogICAgICAgICAgICAgICAgICAgIGV4Y2hhbmdlX2NyZWRzW2NyZWRfa2V5XSA9IHZhbHVlCgogICAgICAgICMgT25seSBpbmNsdWRlIGV4Y2hhbmdlIGlmIGl0IGhhcyBhdCBsZWFzdCBvbmUgY3JlZGVudGlhbAogICAgICAgIGlmIGV4Y2hhbmdlX2NyZWRzOgogICAgICAgICAgICBjcmVkZW50aWFsc1tleGNoYW5nZV0gPSBleGNoYW5nZV9jcmVkcwoKICAgIHJldHVybiBjcmVkZW50aWFscwoKCmRlZiB2YWxpZGF0ZV9jcmVkZW50aWFsc19wcmVzZW50KAogICAgY3JlZGVudGlhbHM6IERpY3Rbc3RyLCBBbnldLCBleGNoYW5nZTogc3RyCikgLT4gdHVwbGVbYm9vbCwgT3B0aW9uYWxbc3RyXV06CiAgICAiIiIKICAgIFZhbGlkYXRlIHRoYXQgcmVxdWlyZWQgY3JlZGVudGlhbHMgYXJlIHByZXNlbnQgZm9yIGFuIGV4Y2hhbmdlLgoKICAgIFJldHVybnMgdHJhbnNwb3J0LWFnbm9zdGljIGVycm9yIG1lc3NhZ2VzLiBUaGUgdHJhbnNwb3J0IGxheWVyIChTU0UsIHN0ZGlvKQogICAgc2hvdWxkIGFkZCB0cmFuc3BvcnQtc3BlY2lmaWMgaGludHMgaWYgbmVlZGVkLgoKICAgIEFyZ3M6CiAgICAgICAgY3JlZGVudGlhbHM6IENyZWRlbnRpYWxzIGRpY3QgZm9yIHRoZSBleGNoYW5nZQogICAgICAgIGV4Y2hhbmdlOiBFeGNoYW5nZSBuYW1lCgogICAgUmV0dXJuczoKICAgICAgICBUdXBsZSBvZiAoaXNfdmFsaWQsIGVycm9yX21lc3NhZ2UpCiAgICAiIiIKICAgICMgU1NFIHNlcnZlciBvbmx5IHN1cHBvcnRzIFBvbHltYXJrZXQgdmlhIEJ1aWxkZXIgcHJvZmlsZQogICAgcmVxdWlyZWRfZmllbGRzID0gewogICAgICAgICJwb2x5bWFya2V0IjogWyJhcGlfa2V5IiwgImFwaV9zZWNyZXQiLCAiYXBpX3Bhc3NwaHJhc2UiXSwKICAgIH0KCiAgICByZXF1aXJlZCA9IHJlcXVpcmVkX2ZpZWxkcy5nZXQoZXhjaGFuZ2UubG93ZXIoKSwgW10pCiAgICBtaXNzaW5nID0gW2ZpZWxkIGZvciBmaWVsZCBpbiByZXF1aXJlZCBpZiBub3QgY3JlZGVudGlhbHMuZ2V0KGZpZWxkKV0KCiAgICBpZiBtaXNzaW5nOgogICAgICAgICMgVHJhbnNwb3J0LWFnbm9zdGljIG1lc3NhZ2UgKG5vIEhUVFAgaGVhZGVyIHJlZmVyZW5jZXMpCiAgICAgICAgcmV0dXJuIEZhbHNlLCBmIk1pc3NpbmcgcmVxdWlyZWQgY3JlZGVudGlhbHMgZm9yIHtleGNoYW5nZX06IHsnLCAnLmpvaW4obWlzc2luZyl9IgoKICAgIHJldHVybiBUcnVlLCBOb25lCgoKZGVmIGlzX3dyaXRlX29wZXJhdGlvbih0b29sX25hbWU6IHN0cikgLT4gYm9vbDoKICAgICIiIkNoZWNrIGlmIGEgdG9vbCBpcyBhIHdyaXRlIG9wZXJhdGlvbi4iIiIKICAgIHJldHVybiB0b29sX25hbWUgaW4gV1JJVEVfT1BFUkFUSU9OUwoKCmRlZiBpc193cml0ZV9hbGxvd2VkX2Zvcl9leGNoYW5nZShleGNoYW5nZTogc3RyKSAtPiBib29sOgogICAgIiIiQ2hlY2sgaWYgd3JpdGUgb3BlcmF0aW9ucyBhcmUgYWxsb3dlZCBmb3IgYW4gZXhjaGFuZ2UgdmlhIFNTRS4iIiIKICAgIHJldHVybiBleGNoYW5nZS5sb3dlcigpIGluIFNTRV9XUklURV9FTkFCTEVEX0VYQ0hBTkdFUwoKCmRlZiB2YWxpZGF0ZV93cml0ZV9vcGVyYXRpb24odG9vbF9uYW1lOiBzdHIsIGV4Y2hhbmdlOiBPcHRpb25hbFtzdHJdKSAtPiB0dXBsZVtib29sLCBPcHRpb25hbFtzdHJdXToKICAgICIiIgogICAgVmFsaWRhdGUgdGhhdCBhIHdyaXRlIG9wZXJhdGlvbiBpcyBhbGxvd2VkLgoKICAgIFNTRSBzZXJ2ZXIgb25seSBhbGxvd3Mgd3JpdGUgb3BlcmF0aW9ucyBmb3IgUG9seW1hcmtldCAodmlhIEJ1aWxkZXIgcHJvZmlsZSkuCiAgICBPdGhlciBleGNoYW5nZXMgYXJlIHJlYWQtb25seSBmb3Igc2VjdXJpdHkgKG5vIHByaXZhdGUga2V5cyBvbiBzZXJ2ZXIpLgoKICAgIEFyZ3M6CiAgICAgICAgdG9vbF9uYW1lOiBUaGUgTUNQIHRvb2wgYmVpbmcgY2FsbGVkCiAgICAgICAgZXhjaGFuZ2U6IFRoZSB0YXJnZXQgZXhjaGFuZ2UgKGlmIGFwcGxpY2FibGUpCgogICAgUmV0dXJuczoKICAgICAgICBUdXBsZSBvZiAoaXNfYWxsb3dlZCwgZXJyb3JfbWVzc2FnZSkKICAgICIiIgogICAgaWYgbm90IGlzX3dyaXRlX29wZXJhdGlvbih0b29sX25hbWUpOgogICAgICAgIHJldHVybiBUcnVlLCBOb25lCgogICAgaWYgbm90IGV4Y2hhbmdlOgogICAgICAgIHJldHVybiBGYWxzZSwgZiJXcml0ZSBvcGVyYXRpb24gJ3t0b29sX25hbWV9JyByZXF1aXJlcyBhbiBleGNoYW5nZSBwYXJhbWV0ZXIiCgogICAgaWYgbm90IGlzX3dyaXRlX2FsbG93ZWRfZm9yX2V4Y2hhbmdlKGV4Y2hhbmdlKToKICAgICAgICByZXR1cm4gKAogICAgICAgICAgICBGYWxzZSwKICAgICAgICAgICAgZiJXcml0ZSBvcGVyYXRpb25zIGFyZSBub3Qgc3VwcG9ydGVkIGZvciAne2V4Y2hhbmdlfScgdmlhIHJlbW90ZSBzZXJ2ZXIuICIKICAgICAgICAgICAgZiJPbmx5IFBvbHltYXJrZXQgaXMgc3VwcG9ydGVkICh2aWEgQnVpbGRlciBwcm9maWxlKS4gIgogICAgICAgICAgICBmIkZvciBvdGhlciBleGNoYW5nZXMsIHVzZSB0aGUgbG9jYWwgTUNQIHNlcnZlci4iLAogICAgICAgICkKCiAgICByZXR1cm4gVHJ1ZSwgTm9uZQoKCmRlZiBnZXRfaGVhZGVyX2hpbnRfZm9yX2NyZWRlbnRpYWwoZXhjaGFuZ2U6IHN0ciwgY3JlZGVudGlhbDogc3RyKSAtPiBPcHRpb25hbFtzdHJdOgogICAgIiIiCiAgICBHZXQgdGhlIEhUVFAgaGVhZGVyIG5hbWUgaGludCBmb3IgYSBjcmVkZW50aWFsLgoKICAgIFRoaXMgaXMgYSBoZWxwZXIgZm9yIFNTRSB0cmFuc3BvcnQgdG8gcHJvdmlkZSB1c2VyLWZyaWVuZGx5IGVycm9yIG1lc3NhZ2VzLgoKICAgIEFyZ3M6CiAgICAgICAgZXhjaGFuZ2U6IEV4Y2hhbmdlIG5hbWUKICAgICAgICBjcmVkZW50aWFsOiBDcmVkZW50aWFsIGZpZWxkIG5hbWUgKGUuZy4sICdwcml2YXRlX2tleScpCgogICAgUmV0dXJuczoKICAgICAgICBIZWFkZXIgbmFtZSAoZS5nLiwgJ1gtUG9seW1hcmtldC1Qcml2YXRlLUtleScpIG9yIE5vbmUKICAgICIiIgogICAgaGVhZGVyX21hcCA9IEhFQURFUl9DUkVERU5USUFMX01BUC5nZXQoZXhjaGFuZ2UubG93ZXIoKSwge30pCiAgICBmb3IgaGVhZGVyLCBjcmVkX2tleSBpbiBoZWFkZXJfbWFwLml0ZW1zKCk6CiAgICAgICAgaWYgY3JlZF9rZXkgPT0gY3JlZGVudGlhbDoKICAgICAgICAgICAgIyBDb252ZXJ0IHRvIHRpdGxlIGNhc2UgZm9yIGRpc3BsYXkgKHgtcG9seW1hcmtldC1wcml2YXRlLWtleSAtPiBYLVBvbHltYXJrZXQtUHJpdmF0ZS1LZXkpCiAgICAgICAgICAgIHJldHVybiAiLSIuam9pbih3b3JkLnRpdGxlKCkgZm9yIHdvcmQgaW4gaGVhZGVyLnNwbGl0KCItIikpCiAgICByZXR1cm4gTm9uZQoKCmRlZiBoYXNfYW55X2NyZWRlbnRpYWxzKGhlYWRlcnM6IERpY3Rbc3RyLCBzdHJdKSAtPiBib29sOgogICAgIiIiQ2hlY2sgaWYgaGVhZGVycyBjb250YWluIGFueSBleGNoYW5nZSBjcmVkZW50aWFscy4iIiIKICAgIG5vcm1hbGl6ZWQgPSB7ay5sb3dlcigpIGZvciBrIGluIGhlYWRlcnMua2V5cygpfQogICAgcmV0dXJuIGFueShocyBpbiBub3JtYWxpemVkIGZvciBoIGluIFNFTlNJVElWRV9IRUFERVJTIGlmIGggIT0gImF1dGhvcml6YXRpb24iKQoKCmRlZiB2ZXJpZnlfd2FsbGV0X3NpZ25hdHVyZSgKICAgIHdhbGxldF9hZGRyZXNzOiBzdHIsIHNpZ25hdHVyZTogc3RyLCB0aW1lc3RhbXA6IHN0ciwgZXhwaXJ5OiBPcHRpb25hbFtzdHJdID0gTm9uZQopIC0+IHR1cGxlW2Jvb2wsIE9wdGlvbmFsW3N0cl1dOgogICAgIiIiCiAgICBWZXJpZnkgdGhhdCBhIHNpZ25hdHVyZSBwcm92ZXMgb3duZXJzaGlwIG9mIGEgd2FsbGV0IGFkZHJlc3MuCgogICAgVGhlIHVzZXIgbXVzdCBzaWduIGEgbWVzc2FnZSBjb250YWluaW5nIHRoZWlyIHdhbGxldCBhZGRyZXNzLCB0aW1lc3RhbXAsIGFuZCBleHBpcnkuCiAgICBUaGlzIHByZXZlbnRzIHJlcGxheSBhdHRhY2tzIGFuZCBwcm92ZXMgd2FsbGV0IG93bmVyc2hpcC4KCiAgICBBcmdzOgogICAgICAgIHdhbGxldF9hZGRyZXNzOiBUaGUgY2xhaW1lZCB3YWxsZXQgYWRkcmVzcwogICAgICAgIHNpZ25hdHVyZTogVGhlIHNpZ25hdHVyZSBvZiB0aGUgYXV0aCBtZXNzYWdlCiAgICAgICAgdGltZXN0YW1wOiBVbml4IHRpbWVzdGFtcCB3aGVuIHRoZSBtZXNzYWdlIHdhcyBzaWduZWQKICAgICAgICBleHBpcnk6IEV4cGlyeSBkdXJhdGlvbiBpbiBzZWNvbmRzIChvcHRpb25hbCwgZGVmYXVsdHMgdG8gMjQgaG91cnMpCgogICAgUmV0dXJuczoKICAgICAgICBUdXBsZSBvZiAoaXNfdmFsaWQsIGVycm9yX21lc3NhZ2UpCiAgICAiIiIKICAgIHRyeToKICAgICAgICAjIFBhcnNlIGFuZCB2YWxpZGF0ZSB0aW1lc3RhbXAKICAgICAgICB0cyA9IGludCh0aW1lc3RhbXApCiAgICAgICAgY3VycmVudF90aW1lID0gaW50KHRpbWUudGltZSgpKQoKICAgICAgICAjIFBhcnNlIGFuZCB2YWxpZGF0ZSBleHBpcnkKICAgICAgICBpZiBleHBpcnk6CiAgICAgICAgICAgIHRyeToKICAgICAgICAgICAgICAgIGV4cGlyeV9zZWNvbmRzID0gaW50KGV4cGlyeSkKICAgICAgICAgICAgICAgICMgVmFsaWRhdGUgZXhwaXJ5IGlzIG9uZSBvZiB0aGUgYWxsb3dlZCBvcHRpb25zCiAgICAgICAgICAgICAgICBpZiBleHBpcnlfc2Vjb25kcyBub3QgaW4gQUxMT1dFRF9FWFBJUllfT1BUSU9OUzoKICAgICAgICAgICAgICAgICAgICByZXR1cm4gRmFsc2UsIGYiSW52YWxpZCBleHBpcnkgZHVyYXRpb24uIEFsbG93ZWQ6IHtBTExPV0VEX0VYUElSWV9PUFRJT05TfSIKICAgICAgICAgICAgICAgICMgQ2FwIGF0IG1heGltdW0gZm9yIHNlY3VyaXR5CiAgICAgICAgICAgICAgICBleHBpcnlfc2Vjb25kcyA9IG1pbihleHBpcnlfc2Vjb25kcywgTUFYX1NJR05BVFVSRV9WQUxJRElUWV9TRUNPTkRTKQogICAgICAgICAgICBleGNlcHQgVmFsdWVFcnJvcjoKICAgICAgICAgICAgICAgIHJldHVybiBGYWxzZSwgIkludmFsaWQgZXhwaXJ5IGZvcm1hdC4iCiAgICAgICAgZWxzZToKICAgICAgICAgICAgZXhwaXJ5X3NlY29uZHMgPSBERUZBVUxUX1NJR05BVFVSRV9WQUxJRElUWV9TRUNPTkRTCgogICAgICAgICMgQ2hlY2sgaWYgc2lnbmF0dXJlIGhhcyBleHBpcmVkCiAgICAgICAgaWYgY3VycmVudF90aW1lIC0gdHMgPiBleHBpcnlfc2Vjb25kczoKICAgICAgICAgICAgcmV0dXJuIEZhbHNlLCAiU2lnbmF0dXJlIGhhcyBleHBpcmVkLiBQbGVhc2UgcmUtYXV0aGVudGljYXRlLiIKCiAgICAgICAgIyBDaGVjayBpZiB0aW1lc3RhbXAgaXMgaW4gdGhlIGZ1dHVyZSAoY2xvY2sgc2tldyB0b2xlcmFuY2U6IDUgbWludXRlcykKICAgICAgICBpZiB0cyA+IGN1cnJlbnRfdGltZSArIDMwMDoKICAgICAgICAgICAgcmV0dXJuIEZhbHNlLCAiSW52YWxpZCB0aW1lc3RhbXAgKGluIGZ1dHVyZSkuIgoKICAgICAgICAjIFJlY29uc3RydWN0IHRoZSBtZXNzYWdlIHRoYXQgd2FzIHNpZ25lZCAobXVzdCBtYXRjaCBmcm9udGVuZCBmb3JtYXQpCiAgICAgICAgaWYgZXhwaXJ5OgogICAgICAgICAgICBtZXNzYWdlID0gZiJ7QVVUSF9NRVNTQUdFX1BSRUZJWH1cblxuV2FsbGV0OiB7d2FsbGV0X2FkZHJlc3N9XG5UaW1lc3RhbXA6IHt0aW1lc3RhbXB9XG5FeHBpcnk6IHtleHBpcnl9IgogICAgICAgIGVsc2U6CiAgICAgICAgICAgICMgTGVnYWN5IGZvcm1hdCB3aXRob3V0IGV4cGlyeSAoZm9yIGJhY2t3YXJkcyBjb21wYXRpYmlsaXR5KQogICAgICAgICAgICBtZXNzYWdlID0gZiJ7QVVUSF9NRVNTQUdFX1BSRUZJWH1cblxuV2FsbGV0OiB7d2FsbGV0X2FkZHJlc3N9XG5UaW1lc3RhbXA6IHt0aW1lc3RhbXB9IgoKICAgICAgICAjIFZlcmlmeSB0aGUgc2lnbmF0dXJlCiAgICAgICAgdzMgPSBXZWIzKCkKICAgICAgICBtZXNzYWdlX2hhc2ggPSBlbmNvZGVfZGVmdW5jdCh0ZXh0PW1lc3NhZ2UpCiAgICAgICAgcmVjb3ZlcmVkX2FkZHJlc3MgPSB3My5ldGguYWNjb3VudC5yZWNvdmVyX21lc3NhZ2UobWVzc2FnZV9oYXNoLCBzaWduYXR1cmU9c2lnbmF0dXJlKQoKICAgICAgICAjIENvbXBhcmUgYWRkcmVzc2VzIChjYXNlLWluc2Vuc2l0aXZlKQogICAgICAgIGlmIHJlY292ZXJlZF9hZGRyZXNzLmxvd2VyKCkgIT0gd2FsbGV0X2FkZHJlc3MubG93ZXIoKToKICAgICAgICAgICAgcmV0dXJuIEZhbHNlLCAiU2lnbmF0dXJlIGRvZXMgbm90IG1hdGNoIHdhbGxldCBhZGRyZXNzLiIKCiAgICAgICAgcmV0dXJuIFRydWUsIE5vbmUKCiAgICBleGNlcHQgVmFsdWVFcnJvciBhcyBlOgogICAgICAgIHJldHVybiBGYWxzZSwgZiJJbnZhbGlkIHRpbWVzdGFtcCBmb3JtYXQ6IHtlfSIKICAgIGV4Y2VwdCBFeGNlcHRpb24gYXMgZToKICAgICAgICByZXR1cm4gRmFsc2UsIGYiU2lnbmF0dXJlIHZlcmlmaWNhdGlvbiBmYWlsZWQ6IHtlfSIKCgpkZWYgdmFsaWRhdGVfb3BlcmF0b3JfY3JlZGVudGlhbHMoY3JlZGVudGlhbHM6IERpY3Rbc3RyLCBBbnldKSAtPiB0dXBsZVtib29sLCBPcHRpb25hbFtzdHJdXToKICAgICIiIgogICAgVmFsaWRhdGUgb3BlcmF0b3IgbW9kZSBjcmVkZW50aWFscyAod2FsbGV0IGFkZHJlc3MgKyBzaWduYXR1cmUpLgoKICAgIEFyZ3M6CiAgICAgICAgY3JlZGVudGlhbHM6IENyZWRlbnRpYWxzIGRpY3QgY29udGFpbmluZyB1c2VyX2FkZHJlc3MsIGF1dGhfc2lnbmF0dXJlLCBhdXRoX3RpbWVzdGFtcCwgYXV0aF9leHBpcnkKCiAgICBSZXR1cm5zOgogICAgICAgIFR1cGxlIG9mIChpc192YWxpZCwgZXJyb3JfbWVzc2FnZSkKICAgICIiIgogICAgdXNlcl9hZGRyZXNzID0gY3JlZGVudGlhbHMuZ2V0KCJ1c2VyX2FkZHJlc3MiKQogICAgc2lnbmF0dXJlID0gY3JlZGVudGlhbHMuZ2V0KCJhdXRoX3NpZ25hdHVyZSIpCiAgICB0aW1lc3RhbXAgPSBjcmVkZW50aWFscy5nZXQoImF1dGhfdGltZXN0YW1wIikKICAgIGV4cGlyeSA9IGNyZWRlbnRpYWxzLmdldCgiYXV0aF9leHBpcnkiKQoKICAgIGlmIG5vdCB1c2VyX2FkZHJlc3M6CiAgICAgICAgcmV0dXJuIEZhbHNlLCAiTWlzc2luZyB3YWxsZXQgYWRkcmVzcy4iCgogICAgaWYgbm90IHNpZ25hdHVyZSBvciBub3QgdGltZXN0YW1wOgogICAgICAgIHJldHVybiAoCiAgICAgICAgICAgIEZhbHNlLAogICAgICAgICAgICAiTWlzc2luZyBhdXRoZW50aWNhdGlvbiBzaWduYXR1cmUuIFBsZWFzZSBhdXRoZW50aWNhdGUgYXQgZHItbWFuaGF0dGFuLmlvL2FwcHJvdmUiLAogICAgICAgICkKCiAgICByZXR1cm4gdmVyaWZ5X3dhbGxldF9zaWduYXR1cmUodXNlcl9hZGRyZXNzLCBzaWduYXR1cmUsIHRpbWVzdGFtcCwgZXhwaXJ5KQo=
+"""Security utilities for MCP server.
+
+Provides functions for handling sensitive data safely in remote MCP environments.
+"""
+
+import os
+import re
+import time
+from typing import Any, Dict, List, Optional
+
+from eth_account.messages import encode_defunct
+from web3 import Web3
+
+# Sensitive header names that should never be logged
+SENSITIVE_HEADERS: List[str] = [
+    # Polymarket (Builder profile - no private key needed)
+    "x-polymarket-api-key",
+    "x-polymarket-api-secret",
+    "x-polymarket-passphrase",
+    # Operator mode authentication
+    "x-polymarket-auth-signature",
+    # Generic
+    "authorization",
+    "x-api-key",
+]
+
+# Header to credential mapping for each exchange
+# SSE server supports Polymarket via:
+# 1. Operator mode: user provides wallet address + signature, server signs on behalf
+# 2. Builder profile: user provides api_key, api_secret, api_passphrase
+HEADER_CREDENTIAL_MAP: Dict[str, Dict[str, str]] = {
+    "polymarket": {
+        # Operator mode (preferred for SSE) - requires signature for security
+        "x-polymarket-wallet-address": "user_address",
+        "x-polymarket-auth-signature": "auth_signature",
+        "x-polymarket-auth-timestamp": "auth_timestamp",
+        "x-polymarket-auth-expiry": "auth_expiry",
+        # Builder profile (alternative)
+        "x-polymarket-api-key": "api_key",
+        "x-polymarket-api-secret": "api_secret",
+        "x-polymarket-passphrase": "api_passphrase",
+    },
+}
+
+# Authentication message prefix (must match frontend)
+AUTH_MESSAGE_PREFIX = "I authorize Dr. Manhattan to trade on Polymarket on my behalf."
+
+# Default signature validity (24 hours) - can be overridden by user
+DEFAULT_SIGNATURE_VALIDITY_SECONDS = 86400
+
+# Maximum allowed expiry (90 days) - security limit
+MAX_SIGNATURE_VALIDITY_SECONDS = 7776000
+
+# Allowed expiry options (must match frontend)
+ALLOWED_EXPIRY_OPTIONS = [86400, 604800, 2592000, 7776000]  # 24h, 7d, 30d, 90d
+
+# Write operations that modify state (require credentials)
+WRITE_OPERATIONS: List[str] = [
+    "create_order",
+    "cancel_order",
+    "cancel_all_orders",
+    "create_strategy_session",
+    "stop_strategy",
+    "pause_strategy",
+    "resume_strategy",
+]
+
+# Exchanges that support write operations via SSE (Builder profile)
+SSE_WRITE_ENABLED_EXCHANGES: List[str] = ["polymarket"]
+
+# Patterns that look like private keys or sensitive data
+SENSITIVE_PATTERNS = [
+    re.compile(r"0x[a-fA-F0-9]{64}"),  # Ethereum private key
+    re.compile(r"[a-fA-F0-9]{64}"),  # Raw hex key
+    re.compile(r"-----BEGIN.*PRIVATE KEY-----"),  # RSA/EC private key
+]
+
+
+def is_sensitive_header(header_name: str) -> bool:
+    """Check if a header name is sensitive."""
+    return header_name.lower() in SENSITIVE_HEADERS
+
+
+def sanitize_headers_for_logging(headers: Dict[str, str]) -> Dict[str, str]:
+    """
+    Sanitize headers for safe logging.
+
+    Replaces sensitive header values with fully masked placeholders.
+    Does NOT expose any characters to prevent brute force hints.
+
+    Args:
+        headers: Original headers dict
+
+    Returns:
+        Headers dict with sensitive values fully masked
+    """
+    sanitized = {}
+    for key, value in headers.items():
+        if is_sensitive_header(key):
+            # Fully mask - do not expose any characters (security best practice)
+            sanitized[key] = "[REDACTED]" if value else "[EMPTY]"
+        else:
+            sanitized[key] = value
+    return sanitized
+
+
+def sanitize_error_message(message: str) -> str:
+    """
+    Remove sensitive data from error messages.
+
+    Args:
+        message: Original error message
+
+    Returns:
+        Message with sensitive patterns replaced
+    """
+    result = message
+    for pattern in SENSITIVE_PATTERNS:
+        result = pattern.sub("[REDACTED]", result)
+    return result
+
+
+def get_credentials_from_headers(headers: Dict[str, str]) -> Dict[str, Dict[str, Any]]:
+    """
+    Extract exchange credentials from HTTP headers.
+
+    Headers are expected in format: X-{Exchange}-{Credential}
+    e.g., X-Polymarket-Private-Key, X-Limitless-Private-Key
+
+    Args:
+        headers: HTTP headers dict (case-insensitive keys)
+
+    Returns:
+        Credentials dict keyed by exchange name
+    """
+    # Normalize header keys to lowercase
+    normalized_headers = {k.lower(): v for k, v in headers.items()}
+
+    credentials: Dict[str, Dict[str, Any]] = {}
+
+    for exchange, header_map in HEADER_CREDENTIAL_MAP.items():
+        exchange_creds: Dict[str, Any] = {}
+
+        for header_name, cred_key in header_map.items():
+            value = normalized_headers.get(header_name)
+            if value:
+                # Handle type conversion for specific fields
+                if cred_key == "signature_type":
+                    try:
+                        exchange_creds[cred_key] = int(value)
+                    except ValueError:
+                        exchange_creds[cred_key] = 0  # Default EOA
+                else:
+                    exchange_creds[cred_key] = value
+
+        # Fallback to environment variables for Polymarket Builder credentials
+        if exchange == "polymarket":
+            fallbacks = {
+                "api_key": os.environ.get("BUILDER_API_KEY"),
+                "api_secret": os.environ.get("BUILDER_SECRET"),
+                "api_passphrase": os.environ.get("BUILDER_PASS_PHRASE"),
+            }
+            for cred_key, value in fallbacks.items():
+                if value and cred_key not in exchange_creds:
+                    exchange_creds[cred_key] = value
+
+        # Only include exchange if it has at least one credential
+        if exchange_creds:
+            credentials[exchange] = exchange_creds
+
+    return credentials
+
+
+def validate_credentials_present(
+    credentials: Dict[str, Any], exchange: str
+) -> tuple[bool, Optional[str]]:
+    """
+    Validate that required credentials are present for an exchange.
+
+    Returns transport-agnostic error messages. The transport layer (SSE, stdio)
+    should add transport-specific hints if needed.
+
+    Args:
+        credentials: Credentials dict for the exchange
+        exchange: Exchange name
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    # SSE server only supports Polymarket via Builder profile
+    required_fields = {
+        "polymarket": ["api_key", "api_secret", "api_passphrase"],
+    }
+
+    required = required_fields.get(exchange.lower(), [])
+    missing = [field for field in required if not credentials.get(field)]
+
+    if missing:
+        # Transport-agnostic message (no HTTP header references)
+        return False, f"Missing required credentials for {exchange}: {', '.join(missing)}"
+
+    return True, None
+
+
+def is_write_operation(tool_name: str) -> bool:
+    """Check if a tool is a write operation."""
+    return tool_name in WRITE_OPERATIONS
+
+
+def is_write_allowed_for_exchange(exchange: str) -> bool:
+    """Check if write operations are allowed for an exchange via SSE."""
+    return exchange.lower() in SSE_WRITE_ENABLED_EXCHANGES
+
+
+def validate_write_operation(tool_name: str, exchange: Optional[str]) -> tuple[bool, Optional[str]]:
+    """
+    Validate that a write operation is allowed.
+
+    SSE server only allows write operations for Polymarket (via Builder profile).
+    Other exchanges are read-only for security (no private keys on server).
+
+    Args:
+        tool_name: The MCP tool being called
+        exchange: The target exchange (if applicable)
+
+    Returns:
+        Tuple of (is_allowed, error_message)
+    """
+    if not is_write_operation(tool_name):
+        return True, None
+
+    if not exchange:
+        return False, f"Write operation '{tool_name}' requires an exchange parameter"
+
+    if not is_write_allowed_for_exchange(exchange):
+        return (
+            False,
+            f"Write operations are not supported for '{exchange}' via remote server. "
+            f"Only Polymarket is supported (via Builder profile). "
+            f"For other exchanges, use the local MCP server.",
+        )
+
+    return True, None
+
+
+def get_header_hint_for_credential(exchange: str, credential: str) -> Optional[str]:
+    """
+    Get the HTTP header name hint for a credential.
+
+    This is a helper for SSE transport to provide user-friendly error messages.
+
+    Args:
+        exchange: Exchange name
+        credential: Credential field name (e.g., 'private_key')
+
+    Returns:
+        Header name (e.g., 'X-Polymarket-Private-Key') or None
+    """
+    header_map = HEADER_CREDENTIAL_MAP.get(exchange.lower(), {})
+    for header, cred_key in header_map.items():
+        if cred_key == credential:
+            # Convert to title case for display (x-polymarket-private-key -> X-Polymarket-Private-Key)
+            return "-".join(word.title() for word in header.split("-"))
+    return None
+
+
+def has_any_credentials(headers: Dict[str, str]) -> bool:
+    """Check if headers contain any exchange credentials."""
+    normalized = {k.lower() for k in headers.keys()}
+    return any(h in normalized for h in SENSITIVE_HEADERS if h != "authorization")
+
+
+def verify_wallet_signature(
+    wallet_address: str, signature: str, timestamp: str, expiry: Optional[str] = None
+) -> tuple[bool, Optional[str]]:
+    """
+    Verify that a signature proves ownership of a wallet address.
+
+    The user must sign a message containing their wallet address, timestamp, and expiry.
+    This prevents replay attacks and proves wallet ownership.
+
+    Args:
+        wallet_address: The claimed wallet address
+        signature: The signature of the auth message
+        timestamp: Unix timestamp when the message was signed
+        expiry: Expiry duration in seconds (optional, defaults to 24 hours)
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    try:
+        # Parse and validate timestamp
+        ts = int(timestamp)
+        current_time = int(time.time())
+
+        # Parse and validate expiry
+        if expiry:
+            try:
+                expiry_seconds = int(expiry)
+                # Validate expiry is one of the allowed options
+                if expiry_seconds not in ALLOWED_EXPIRY_OPTIONS:
+                    return False, f"Invalid expiry duration. Allowed: {ALLOWED_EXPIRY_OPTIONS}"
+                # Cap at maximum for security
+                expiry_seconds = min(expiry_seconds, MAX_SIGNATURE_VALIDITY_SECONDS)
+            except ValueError:
+                return False, "Invalid expiry format."
+        else:
+            expiry_seconds = DEFAULT_SIGNATURE_VALIDITY_SECONDS
+
+        # Check if signature has expired
+        if current_time - ts > expiry_seconds:
+            return False, "Signature has expired. Please re-authenticate."
+
+        # Check if timestamp is in the future (clock skew tolerance: 5 minutes)
+        if ts > current_time + 300:
+            return False, "Invalid timestamp (in future)."
+
+        # Reconstruct the message that was signed (must match frontend format)
+        if expiry:
+            message = f"{AUTH_MESSAGE_PREFIX}\n\nWallet: {wallet_address}\nTimestamp: {timestamp}\nExpiry: {expiry}"
+        else:
+            # Legacy format without expiry (for backwards compatibility)
+            message = f"{AUTH_MESSAGE_PREFIX}\n\nWallet: {wallet_address}\nTimestamp: {timestamp}"
+
+        # Verify the signature
+        w3 = Web3()
+        message_hash = encode_defunct(text=message)
+        recovered_address = w3.eth.account.recover_message(message_hash, signature=signature)
+
+        # Compare addresses (case-insensitive)
+        if recovered_address.lower() != wallet_address.lower():
+            return False, "Signature does not match wallet address."
+
+        return True, None
+
+    except ValueError as e:
+        return False, f"Invalid timestamp format: {e}"
+    except Exception as e:
+        return False, f"Signature verification failed: {e}"
+
+
+def validate_operator_credentials(credentials: Dict[str, Any]) -> tuple[bool, Optional[str]]:
+    """
+    Validate operator mode credentials (wallet address + signature).
+
+    Args:
+        credentials: Credentials dict containing user_address, auth_signature, auth_timestamp, auth_expiry
+
+    Returns:
+        Tuple of (is_valid, error_message)
+    """
+    user_address = credentials.get("user_address")
+    signature = credentials.get("auth_signature")
+    timestamp = credentials.get("auth_timestamp")
+    expiry = credentials.get("auth_expiry")
+
+    if not user_address:
+        return False, "Missing wallet address."
+
+    if not signature or not timestamp:
+        return (
+            False,
+            "Missing authentication signature. Please authenticate at dr-manhattan.io/approve",
+        )
+
+    return verify_wallet_signature(user_address, signature, timestamp, expiry)
