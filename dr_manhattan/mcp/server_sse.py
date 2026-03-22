@@ -28,7 +28,7 @@ import os
 import signal
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 # =============================================================================
 # CRITICAL: Logger patching MUST happen BEFORE importing dr_manhattan modules
