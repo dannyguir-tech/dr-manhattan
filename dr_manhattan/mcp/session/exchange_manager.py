@@ -379,7 +379,25 @@ class ExchangeSessionManager:
                             "Please provide your private key."
                         )
 
-                logger.info(f"Using context credentials for {exchange_name} (SSE mode)")
+                # Merge MCP_CREDENTIALS env fallbacks for any fields missing from
+                # context credentials (e.g. POLYMARKET_FUNDER, POLYMARKET_PRIVATE_KEY).
+                # This prevents the short-circuit from silently dropping env-var-only
+                # fields when context_creds is non-empty but incomplete.
+                env_creds = MCP_CREDENTIALS.get(exchange_name.lower()) or {}
+                if env_creds:
+                    # Start from env base so all env-configured fields are present,
+                    # then overlay context creds (header/request values take priority).
+                    merged_creds = dict(env_creds)
+                    merged_creds.update(
+                        {k: v for k, v in exchange_creds.items() if v}
+                    )
+                    exchange_creds = merged_creds
+                    logger.info(
+                        f"Using context credentials for {exchange_name} (SSE mode, "
+                        f"merged with env fallbacks for missing fields)"
+                    )
+                else:
+                    logger.info(f"Using context credentials for {exchange_name} (SSE mode)")
                 # Create exchange without caching (each user has different credentials)
                 return self._create_exchange_with_credentials(exchange_name, exchange_creds)
 
