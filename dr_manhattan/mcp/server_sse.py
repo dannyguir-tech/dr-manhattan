@@ -21,6 +21,7 @@ Security:
 
 import asyncio
 import contextvars
+import inspect
 import json
 import logging
 import os
@@ -179,7 +180,13 @@ async def call_tool(name: str, arguments: Any) -> List[TextContent]:
             raise ValueError(error_msg)
 
         handler, requires_args = TOOL_DISPATCH[name]
-        result = handler(**arguments) if requires_args else handler()
+        if requires_args:
+            result = handler(**arguments)
+        else:
+            result = handler()
+
+        if inspect.iscoroutinefunction(handler):
+            result = await result
 
         return [TextContent(type="text", text=json.dumps(result, indent=2))]
 
