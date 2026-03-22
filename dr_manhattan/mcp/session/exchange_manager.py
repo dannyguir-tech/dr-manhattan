@@ -285,8 +285,8 @@ class ExchangeSessionManager:
                     description=f"{exchange_name} Operator initialization",
                 )
 
-            # Priority 2: Builder profile (api credentials provided)
-            if has_builder_creds and not has_private_key:
+            # Priority 2: Builder profile (api credentials provided, takes precedence over private key)
+            if has_builder_creds:
                 logger.info(f"Using PolymarketBuilder for {exchange_name} (Builder profile)")
                 config_dict["verbose"] = DEFAULT_VERBOSE
                 return _run_with_timeout(
