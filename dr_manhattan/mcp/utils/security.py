@@ -35,18 +35,29 @@ WRITE_OPERATIONS: List[str] = [
 # Credential extraction
 # ---------------------------------------------------------------------------
 
+# Maps HTTP header names to the credential dict keys that exchange_manager
+# reads via exchange_creds.get(k).  The Builder credential keys MUST be
+# 'api_key', 'api_secret', 'api_passphrase' to match the has_builder_creds
+# check in exchange_manager.get_exchange():
+#   has_builder_creds = all(
+#       exchange_creds.get(k) for k in ("api_key", "api_secret", "api_passphrase")
+#   )
 HEADER_CREDENTIAL_MAP = {
     "polymarket": {
         "x-polymarket-api-key": "api_key",
-        "x-polymarket-secret": "secret",
-        "x-polymarket-passphrase": "passphrase",
+        # NOTE: key name is 'api_secret' (not 'secret') to match exchange_manager
+        "x-polymarket-secret": "api_secret",
+        # NOTE: key name is 'api_passphrase' (not 'passphrase') to match exchange_manager
+        "x-polymarket-passphrase": "api_passphrase",
         "x-polymarket-funder": "funder",
         "x-polymarket-private-key": "private_key",
+        # Operator mode
+        "x-polymarket-user-address": "user_address",
     }
 }
 
 
-def get_credentials_from_headers(headers: Dict[str, str]) -> Dict[str, Dict[str, Any]]:
+def get_credentials_from_headers(headers: Optional[Dict[str, str]]) -> Dict[str, Dict[str, Any]]:
     """Extract exchange credentials from request headers.
 
     Always returns a dict – never None – so callers can safely iterate over
@@ -54,7 +65,7 @@ def get_credentials_from_headers(headers: Dict[str, str]) -> Dict[str, Dict[str,
     """
     # Guard: treat a None headers argument as an empty dict so the rest of
     # the function never tries to iterate over None.
-    if headers is None:
+    if not headers:
         return {}
 
     normalized_headers = {k.lower(): v for k, v in headers.items()}
@@ -72,14 +83,14 @@ def get_credentials_from_headers(headers: Dict[str, str]) -> Dict[str, Dict[str,
         if exchange == "polymarket":
             fallbacks = {
                 "api_key": os.environ.get("BUILDER_API_KEY"),
-                "secret": os.environ.get("BUILDER_SECRET"),
-                "passphrase": os.environ.get("BUILDER_PASS_PHRASE"),
+                "api_secret": os.environ.get("BUILDER_SECRET"),
+                "api_passphrase": os.environ.get("BUILDER_PASS_PHRASE"),
                 "private_key": os.environ.get("POLYMARKET_PRIVATE_KEY"),
                 "funder": os.environ.get("POLYMARKET_FUNDER"),
             }
             # Defensive guard: ensure exchange_creds is always a dict before
             # iterating – fixes 'NoneType is not iterable' if a prior code path
-            # ever sets it to None (e.g. exchange_creds = credentials.get(exchange)).
+            # ever sets it to None.
             exchange_creds = exchange_creds or {}
             for cred_key, value in fallbacks.items():
                 if value and cred_key not in exchange_creds:
@@ -113,6 +124,39 @@ def validate_credentials_present(
             f"No credentials found for exchange '{exchange}'. "
             "Pass the required headers (e.g. X-Polymarket-Api-Key) with your request."
         )
+
+
+def validate_operator_credentials(
+    credentials: Dict[str, Any],
+) -> Tuple[bool, str]:
+    """Validate that operator-mode credentials contain a user_address.
+
+    Called by exchange_manager.get_exchange() when operator mode is detected
+    (user_address present, no private_key, no builder creds).
+
+    Args:
+        credentials: Per-exchange credential dict extracted from request headers.
+
+    Returns:
+        (is_valid, error_message) – error_message is empty string when valid.
+    """
+    if not credentials:
+        return False, "No credentials provided for operator mode."
+
+    user_address = credentials.get("user_address")
+    if not user_address:
+        return False, (
+            "Operator mode requires 'user_address'. "
+            "Pass X-Polymarket-User-Address header with the wallet address to trade for."
+        )
+
+    # Basic sanity check: must look like an Ethereum address
+    if not isinstance(user_address, str) or not user_address.startswith("0x"):
+        return False, (
+            f"Invalid user_address '{user_address}': must be a 0x-prefixed Ethereum address."
+        )
+
+    return True, ""
 
 
 # ---------------------------------------------------------------------------
