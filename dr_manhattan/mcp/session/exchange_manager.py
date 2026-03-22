@@ -347,11 +347,33 @@ class ExchangeSessionManager:
             # Guard: exchange_creds must be a dict – never None – before any `in` checks
             exchange_creds = exchange_creds or {}
             if exchange_creds:
-                # Validate required credentials (transport-agnostic messages)
+                # Step 1 — Merge MCP_CREDENTIALS env fallbacks FIRST so that env vars
+                # like POLYMARKET_PRIVATE_KEY and POLYMARKET_FUNDER are present before
+                # the validation check below runs.  Context/header credentials win on
+                # conflict; env vars fill in any missing fields.
+                env_creds = MCP_CREDENTIALS.get(exchange_name.lower()) or {}
+                if env_creds:
+                    # Start from env base so all env-configured fields are present,
+                    # then overlay context creds (header/request values take priority).
+                    merged_creds = dict(env_creds)
+                    merged_creds.update(
+                        {k: v for k, v in exchange_creds.items() if v}
+                    )
+                    exchange_creds = merged_creds
+                    logger.info(
+                        f"Using context credentials for {exchange_name} (SSE mode, "
+                        f"merged with env fallbacks for missing fields)"
+                    )
+                else:
+                    logger.info(f"Using context credentials for {exchange_name} (SSE mode)")
+
+                # Step 2 — Validate AFTER merging so env-configured credentials are
+                # taken into account before deciding anything is missing.
                 if exchange_name.lower() == "polymarket":
                     # SSE mode supports two authentication methods:
                     # 1. Operator mode: user provides wallet address + signature
                     # 2. Builder profile: user provides api_key, api_secret, api_passphrase
+                    # 3. Direct mode: private_key (from env or header)
                     has_user_address = exchange_creds.get("user_address")
                     has_builder_creds = all(
                         exchange_creds.get(k) for k in ("api_key", "api_secret", "api_passphrase")
@@ -379,25 +401,6 @@ class ExchangeSessionManager:
                             "Please provide your private key."
                         )
 
-                # Merge MCP_CREDENTIALS env fallbacks for any fields missing from
-                # context credentials (e.g. POLYMARKET_FUNDER, POLYMARKET_PRIVATE_KEY).
-                # This prevents the short-circuit from silently dropping env-var-only
-                # fields when context_creds is non-empty but incomplete.
-                env_creds = MCP_CREDENTIALS.get(exchange_name.lower()) or {}
-                if env_creds:
-                    # Start from env base so all env-configured fields are present,
-                    # then overlay context creds (header/request values take priority).
-                    merged_creds = dict(env_creds)
-                    merged_creds.update(
-                        {k: v for k, v in exchange_creds.items() if v}
-                    )
-                    exchange_creds = merged_creds
-                    logger.info(
-                        f"Using context credentials for {exchange_name} (SSE mode, "
-                        f"merged with env fallbacks for missing fields)"
-                    )
-                else:
-                    logger.info(f"Using context credentials for {exchange_name} (SSE mode)")
                 # Create exchange without caching (each user has different credentials)
                 return self._create_exchange_with_credentials(exchange_name, exchange_creds)
 
