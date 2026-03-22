@@ -47,7 +47,16 @@ HEADER_CREDENTIAL_MAP = {
 
 
 def get_credentials_from_headers(headers: Dict[str, str]) -> Dict[str, Dict[str, Any]]:
-    """Extract exchange credentials from request headers."""
+    """Extract exchange credentials from request headers.
+
+    Always returns a dict – never None – so callers can safely iterate over
+    the result (e.g. ``if exchange in credentials``) without a prior None-check.
+    """
+    # Guard: treat a None headers argument as an empty dict so the rest of
+    # the function never tries to iterate over None.
+    if headers is None:
+        return {}
+
     normalized_headers = {k.lower(): v for k, v in headers.items()}
     all_credentials: Dict[str, Dict[str, Any]] = {}
 

@@ -127,15 +127,20 @@ fix_all_loggers()
 # Get logger for this module
 logger = logging.getLogger(__name__)
 
-# Context variable to store current request credentials
-_request_credentials: contextvars.ContextVar[Optional[Dict[str, Any]]] = contextvars.ContextVar(
-    "request_credentials", default=None
+# Context variable to store current request credentials.
+# Default to an empty dict (never None) so callers can always safely iterate.
+_request_credentials: contextvars.ContextVar[Dict[str, Any]] = contextvars.ContextVar(
+    "request_credentials", default={}
 )
 
 
-def get_current_credentials() -> Optional[Dict[str, Any]]:
-    """Get credentials from current request context."""
-    return _request_credentials.get()
+def get_current_credentials() -> Dict[str, Any]:
+    """Get credentials from current request context.
+
+    Always returns a dict – never None – so callers can safely do
+    ``if exchange in get_current_credentials()`` without a None-check.
+    """
+    return _request_credentials.get() or {}
 
 
 # Register the credentials getter with exchange manager
@@ -226,26 +231,34 @@ async def handle_sse(request: Request) -> Response:
 async def handle_messages(request: Request) -> Response:
     """Handle POST messages for SSE transport.
 
-    SseServerTransport.handle_post_message() writes the HTTP response directly
-    via the ASGI send callable and returns None. We must not return that None
-    to Starlette's router (it would crash with TypeError: 'NoneType' is not
-    callable). Instead we call it for its side-effects and return a sentinel
-    Response() ourselves.
+    SseServerTransport.handle_post_message() is a raw ASGI callable that
+    writes the HTTP response itself via the ASGI send callable and returns
+    None.  We call it purely for its side-effects and then return our own
+    empty Response() so Starlette's routing layer has a valid Response object
+    to work with.  We do NOT pass the return value of handle_post_message to
+    Starlette – doing so would cause a double-response RuntimeError because
+    Starlette would attempt to send a second response after the transport has
+    already closed the connection.
     """
-    # Extract credentials for this request
+    # Extract credentials for this request and store in context
     headers = dict(request.headers)
     credentials = get_credentials_from_headers(headers)
     token = _request_credentials.set(credentials)
 
     try:
+        # Await the transport handler for its side-effects only.
+        # It sends the full HTTP response via request._send internally.
         await sse_transport.handle_post_message(
             request.scope, request.receive, request._send
         )
     finally:
         _request_credentials.reset(token)
 
-    # handle_post_message already sent the full HTTP response via request._send,
-    # so return an empty Response to satisfy Starlette's routing contract.
+    # Return an empty Response so Starlette does not raise a RuntimeError
+    # about a missing response object.  The transport has already sent the
+    # real response above, so Starlette must not try to send this one – and
+    # it won't, because the ASGI send callable has already been called with
+    # http.response.start + http.response.body, signalling end-of-response.
     return Response()
 
 
