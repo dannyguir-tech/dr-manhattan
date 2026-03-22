@@ -100,6 +100,21 @@ def get_credentials_from_headers(headers: Optional[Dict[str, str]]) -> Dict[str,
                 if value and cred_key not in exchange_creds:
                     exchange_creds[cred_key] = value
 
+        # Only include creds if at least one complete auth method is present.
+        # Supplementary fields (funder, proxy_wallet) alone must not trigger
+        # the SSE auth-validation path, or it will raise "Missing credentials"
+        # when e.g. only POLYMARKET_FUNDER is set on Railway.
+        if exchange == "polymarket":
+            has_auth = bool(
+                exchange_creds.get("private_key")
+                or exchange_creds.get("user_address")
+                or all(
+                    exchange_creds.get(k) for k in ("api_key", "api_secret", "api_passphrase")
+                )
+            )
+            if not has_auth:
+                exchange_creds = {}
+
         if exchange_creds:
             all_credentials[exchange] = exchange_creds
 
