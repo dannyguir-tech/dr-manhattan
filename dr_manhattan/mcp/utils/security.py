@@ -139,6 +139,7 @@ def get_credentials_from_headers(headers: Dict[str, str]) -> Dict[str, Dict[str,
     credentials: Dict[str, Dict[str, Any]] = {}
 
     for exchange, header_map in HEADER_CREDENTIAL_MAP.items():
+        # Initialize to empty dict before any iteration
         exchange_creds: Dict[str, Any] = {}
 
         for header_name, cred_key in header_map.items():
@@ -155,7 +156,6 @@ def get_credentials_from_headers(headers: Dict[str, str]) -> Dict[str, Dict[str,
 
         # Fallback to environment variables for Polymarket Builder credentials
         if exchange == "polymarket":
-            exchange_creds = credentials.get(exchange) or {}
             fallbacks = {
                 "api_key": os.environ.get("BUILDER_API_KEY"),
                 "api_secret": os.environ.get("BUILDER_SECRET"),
