@@ -275,10 +275,11 @@ def fetch_balance(exchange: str) -> Dict[str, Any]:
             from ..session.exchange_manager import MCP_CREDENTIALS
 
             proxy_wallet = (MCP_CREDENTIALS.get("polymarket") or {}).get("proxy_wallet", "")
-            funder_wallet = exch.funder if hasattr(exch, "funder") else ""
+            funder_wallet = (exch.funder if hasattr(exch, "funder") else "") or ""
 
-            # Guard: funder_wallet must be a non-empty string or we cannot query it
-            funder_wallet = funder_wallet or ""
+            # Fall back to the address derived from the private key if no funder configured
+            if not funder_wallet and hasattr(exch, "_address") and exch._address:
+                funder_wallet = exch._address
 
             # Query both wallet balances (None means query failed)
             funder_balance = get_usdc_balance_polygon(funder_wallet) if funder_wallet else None
@@ -441,10 +442,11 @@ def calculate_nav(exchange: str, market_id: Optional[str] = None) -> Dict[str, A
             from ..session.exchange_manager import MCP_CREDENTIALS
 
             proxy_wallet = (MCP_CREDENTIALS.get("polymarket") or {}).get("proxy_wallet", "")
-            funder_wallet = exch.funder if hasattr(exch, "funder") else ""
+            funder_wallet = (exch.funder if hasattr(exch, "funder") else "") or ""
 
-            # Guard: funder_wallet must be a non-empty string
-            funder_wallet = funder_wallet or ""
+            # Fall back to the address derived from the private key if no funder configured
+            if not funder_wallet and hasattr(exch, "_address") and exch._address:
+                funder_wallet = exch._address
 
             # Query both wallet balances (None means query failed)
             funder_balance = get_usdc_balance_polygon(funder_wallet) if funder_wallet else None
