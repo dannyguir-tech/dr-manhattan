@@ -224,18 +224,29 @@ async def handle_sse(request: Request) -> Response:
 
 
 async def handle_messages(request: Request) -> Response:
-    """Handle POST messages for SSE transport."""
+    """Handle POST messages for SSE transport.
+
+    SseServerTransport.handle_post_message() writes the HTTP response directly
+    via the ASGI send callable and returns None. We must not return that None
+    to Starlette's router (it would crash with TypeError: 'NoneType' is not
+    callable). Instead we call it for its side-effects and return a sentinel
+    Response() ourselves.
+    """
     # Extract credentials for this request
     headers = dict(request.headers)
     credentials = get_credentials_from_headers(headers)
     token = _request_credentials.set(credentials)
 
     try:
-        return await sse_transport.handle_post_message(
+        await sse_transport.handle_post_message(
             request.scope, request.receive, request._send
         )
     finally:
         _request_credentials.reset(token)
+
+    # handle_post_message already sent the full HTTP response via request._send,
+    # so return an empty Response to satisfy Starlette's routing contract.
+    return Response()
 
 
 async def health_check(request: Request) -> JSONResponse:
