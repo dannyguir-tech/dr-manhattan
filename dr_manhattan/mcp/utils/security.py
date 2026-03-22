@@ -121,26 +121,15 @@ def sanitize_error_message(message: str) -> str:
 
 
 def get_credentials_from_headers(headers: Dict[str, str]) -> Dict[str, Dict[str, Any]]:
-    """
-    Extract exchange credentials from HTTP headers.
-
-    Headers are expected in format: X-{Exchange}-{Credential}
-    e.g., X-Polymarket-Private-Key, X-Limitless-Private-Key
-
-    Args:
-        headers: HTTP headers dict (case-insensitive keys)
-
-    Returns:
-        Credentials dict keyed by exchange name
-    """
-    credentials: Dict[str, Dict[str, Any]] = {}
     normalized_headers = {k.lower(): v for k, v in headers.items()}
+    all_credentials = {}
 
     for exchange, header_map in HEADER_CREDENTIAL_MAP.items():
-        exchange_creds: Dict[str, Any] = {}
+        exchange_creds = {}
 
+        # 1. Try to get from headers
         for header_name, cred_key in header_map.items():
-            value = normalized_headers.get(header_name)
+            value = normalized_headers.get(header_name.lower())
             if value:
                 if cred_key == "signature_type":
                     try:
@@ -150,20 +139,21 @@ def get_credentials_from_headers(headers: Dict[str, str]) -> Dict[str, Dict[str,
                 else:
                     exchange_creds[cred_key] = value
 
+        # 2. Fallback to env vars for Polymarket
         if exchange == "polymarket":
             fallbacks = {
                 "api_key": os.environ.get("BUILDER_API_KEY"),
-                "api_secret": os.environ.get("BUILDER_SECRET"),
-                "api_passphrase": os.environ.get("BUILDER_PASS_PHRASE"),
+                "secret": os.environ.get("BUILDER_SECRET"),
+                "passphrase": os.environ.get("BUILDER_PASS_PHRASE"),
             }
-            for fallback_key, fallback_value in fallbacks.items():
-                if fallback_value and fallback_key not in exchange_creds:
-                    exchange_creds[fallback_key] = fallback_value
+            for cred_key, value in fallbacks.items():
+                if value and cred_key not in exchange_creds:
+                    exchange_creds[cred_key] = value
 
         if exchange_creds:
-            credentials[exchange] = exchange_creds
+            all_credentials[exchange] = exchange_creds
 
-    return credentials
+    return all_credentials
 
 
 def validate_credentials_present(
