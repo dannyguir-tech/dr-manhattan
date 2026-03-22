@@ -228,38 +228,29 @@ async def handle_sse(request: Request) -> Response:
     return Response()
 
 
-async def handle_messages(request: Request) -> Response:
+async def handle_messages(scope, receive, send):
     """Handle POST messages for SSE transport.
 
-    SseServerTransport.handle_post_message() is a raw ASGI callable that
-    writes the HTTP response itself via the ASGI send callable and returns
-    None.  We call it purely for its side-effects and then return our own
-    empty Response() so Starlette's routing layer has a valid Response object
-    to work with.  We do NOT pass the return value of handle_post_message to
-    Starlette – doing so would cause a double-response RuntimeError because
-    Starlette would attempt to send a second response after the transport has
-    already closed the connection.
+    Defined as a raw ASGI callable so that sse_transport.handle_post_message
+    (which is itself a raw ASGI app) writes the HTTP response directly via
+    the ASGI 'send' callable without triggering a Starlette double-response
+    RuntimeError.  We use Request only to read headers and set the ContextVar;
+    we never ask Starlette to send any response of our own.
     """
-    # Extract credentials for this request and store in context
+    # Read headers via a lightweight Request wrapper (no body consumed).
+    request = Request(scope, receive, send)
     headers = dict(request.headers)
+
+    # Extract credentials for this request and store in context.
     credentials = get_credentials_from_headers(headers)
     token = _request_credentials.set(credentials)
 
     try:
-        # Await the transport handler for its side-effects only.
-        # It sends the full HTTP response via request._send internally.
-        await sse_transport.handle_post_message(
-            request.scope, request.receive, request._send
-        )
+        # Delegate fully to the transport – it owns the ASGI send callable
+        # and sends the complete HTTP response itself.
+        await sse_transport.handle_post_message(scope, receive, send)
     finally:
         _request_credentials.reset(token)
-
-    # Return an empty Response so Starlette does not raise a RuntimeError
-    # about a missing response object.  The transport has already sent the
-    # real response above, so Starlette must not try to send this one – and
-    # it won't, because the ASGI send callable has already been called with
-    # http.response.start + http.response.body, signalling end-of-response.
-    return Response()
 
 
 async def health_check(request: Request) -> JSONResponse:
@@ -338,10 +329,14 @@ routes = [
     Route("/", endpoint=root, methods=["GET"]),
     Route("/health", endpoint=health_check, methods=["GET"]),
     Route("/sse", endpoint=handle_sse, methods=["GET"]),
-    Route("/messages/", endpoint=handle_messages, methods=["POST"]),
 ]
 
 app = Starlette(routes=routes, middleware=middleware)
+
+# Register /messages/ as a raw ASGI route to avoid Starlette double-response.
+# handle_messages is a raw ASGI callable (scope, receive, send) – not a
+# Starlette endpoint – so we use app.add_route instead of Route().
+app.add_route("/messages/", handle_messages, methods=["POST"])
 
 
 # =============================================================================

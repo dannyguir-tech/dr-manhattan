@@ -77,6 +77,10 @@ def get_credentials_from_headers(headers: Dict[str, str]) -> Dict[str, Dict[str,
                 "private_key": os.environ.get("POLYMARKET_PRIVATE_KEY"),
                 "funder": os.environ.get("POLYMARKET_FUNDER"),
             }
+            # Defensive guard: ensure exchange_creds is always a dict before
+            # iterating – fixes 'NoneType is not iterable' if a prior code path
+            # ever sets it to None (e.g. exchange_creds = credentials.get(exchange)).
+            exchange_creds = exchange_creds or {}
             for cred_key, value in fallbacks.items():
                 if value and cred_key not in exchange_creds:
                     exchange_creds[cred_key] = value
