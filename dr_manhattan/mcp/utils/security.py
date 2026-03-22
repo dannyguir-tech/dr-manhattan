@@ -1,5 +1,39 @@
 import os
-from typing import Dict, Any
+import re
+from typing import Dict, Any, List, Optional, Tuple
+
+# ---------------------------------------------------------------------------
+# Sensitive header names – values for these are NEVER logged or echoed back
+# ---------------------------------------------------------------------------
+SENSITIVE_HEADERS: List[str] = [
+    "authorization",
+    "x-api-key",
+    "x-api-secret",
+    "x-api-passphrase",
+    "builder-api-key",
+    "builder-secret",
+    "builder-pass-phrase",
+    "polymarket-private-key",
+    "polymarket-funder",
+]
+
+# ---------------------------------------------------------------------------
+# Write-operation access control
+# ---------------------------------------------------------------------------
+
+# Only these exchanges are allowed to perform write operations via the SSE server.
+SSE_WRITE_ENABLED_EXCHANGES: List[str] = ["polymarket"]
+
+# Tool names that are considered write (state-changing) operations.
+WRITE_OPERATIONS: List[str] = [
+    "create_order",
+    "cancel_order",
+    "cancel_all_orders",
+]
+
+# ---------------------------------------------------------------------------
+# Credential extraction
+# ---------------------------------------------------------------------------
 
 HEADER_CREDENTIAL_MAP = {
     "polymarket": {
@@ -7,16 +41,18 @@ HEADER_CREDENTIAL_MAP = {
         "x-polymarket-secret": "secret",
         "x-polymarket-passphrase": "passphrase",
         "x-polymarket-funder": "funder",
-        "x-polymarket-private-key": "private_key"
+        "x-polymarket-private-key": "private_key",
     }
 }
 
+
 def get_credentials_from_headers(headers: Dict[str, str]) -> Dict[str, Dict[str, Any]]:
+    """Extract exchange credentials from request headers."""
     normalized_headers = {k.lower(): v for k, v in headers.items()}
-    all_credentials = {}
+    all_credentials: Dict[str, Dict[str, Any]] = {}
 
     for exchange, header_map in HEADER_CREDENTIAL_MAP.items():
-        exchange_creds = {}
+        exchange_creds: Dict[str, Any] = {}
 
         if header_map:
             for header_name, cred_key in header_map.items():
@@ -30,7 +66,7 @@ def get_credentials_from_headers(headers: Dict[str, str]) -> Dict[str, Dict[str,
                 "secret": os.environ.get("BUILDER_SECRET"),
                 "passphrase": os.environ.get("BUILDER_PASS_PHRASE"),
                 "private_key": os.environ.get("POLYMARKET_PRIVATE_KEY"),
-                "funder": os.environ.get("POLYMARKET_FUNDER")
+                "funder": os.environ.get("POLYMARKET_FUNDER"),
             }
             for cred_key, value in fallbacks.items():
                 if value and cred_key not in exchange_creds:
@@ -40,3 +76,95 @@ def get_credentials_from_headers(headers: Dict[str, str]) -> Dict[str, Dict[str,
             all_credentials[exchange] = exchange_creds
 
     return all_credentials
+
+
+# ---------------------------------------------------------------------------
+# Credential validation helpers
+# ---------------------------------------------------------------------------
+
+
+def has_any_credentials(credentials: Optional[Dict[str, Dict[str, Any]]]) -> bool:
+    """Return True if the credentials dict contains at least one exchange entry."""
+    if not credentials:
+        return False
+    return any(bool(v) for v in credentials.values())
+
+
+def validate_credentials_present(
+    credentials: Optional[Dict[str, Dict[str, Any]]],
+    exchange: str,
+) -> None:
+    """Raise ValueError if credentials for *exchange* are absent or empty."""
+    if not credentials or not credentials.get(exchange):
+        raise ValueError(
+            f"No credentials found for exchange '{exchange}'. "
+            "Pass the required headers (e.g. X-Polymarket-Api-Key) with your request."
+        )
+
+
+# ---------------------------------------------------------------------------
+# Write-operation validation
+# ---------------------------------------------------------------------------
+
+
+def is_write_operation(tool_name: str) -> bool:
+    """Return True if *tool_name* is a state-changing (write) operation."""
+    return tool_name in WRITE_OPERATIONS
+
+
+def validate_write_operation(
+    tool_name: str,
+    exchange: Optional[str],
+) -> Tuple[bool, str]:
+    """
+    Check whether a write operation is permitted for the given exchange.
+
+    Returns:
+        (is_allowed, error_message) – error_message is empty when allowed.
+    """
+    if not is_write_operation(tool_name):
+        return True, ""
+
+    if exchange is None:
+        return False, (
+            f"Tool '{tool_name}' is a write operation but no exchange was specified."
+        )
+
+    if exchange.lower() not in SSE_WRITE_ENABLED_EXCHANGES:
+        return False, (
+            f"Write operations are not permitted for exchange '{exchange}' via the SSE server. "
+            f"Only {SSE_WRITE_ENABLED_EXCHANGES} support write operations."
+        )
+
+    return True, ""
+
+
+# ---------------------------------------------------------------------------
+# Logging / sanitization helpers
+# ---------------------------------------------------------------------------
+
+_SENSITIVE_HEADER_SET = {h.lower() for h in SENSITIVE_HEADERS}
+
+# Patterns that look like secrets even when not in a known header
+_SECRET_PATTERNS = [
+    re.compile(r"(0x[a-fA-F0-9]{40,})", re.IGNORECASE),   # private keys / addresses
+    re.compile(r"([A-Za-z0-9+/]{40,}={0,2})", re.IGNORECASE),  # base64 blobs
+]
+
+
+def sanitize_headers_for_logging(headers: Dict[str, str]) -> Dict[str, str]:
+    """Return a copy of *headers* with sensitive values replaced by '[REDACTED]'."""
+    sanitized: Dict[str, str] = {}
+    for key, value in headers.items():
+        if key.lower() in _SENSITIVE_HEADER_SET:
+            sanitized[key] = "[REDACTED]"
+        else:
+            sanitized[key] = value
+    return sanitized
+
+
+def sanitize_error_message(message: str) -> str:
+    """Strip potential secret material from an error message string."""
+    for pattern in _SECRET_PATTERNS:
+        message = pattern.sub("[REDACTED]", message)
+    return message
