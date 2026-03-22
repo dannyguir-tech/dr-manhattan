@@ -1,15 +1,1 @@
-{
-  "$schema": "https://railway.com/railway.schema.json",
-  "build": {
-    "builder": "DOCKERFILE",
-    "dockerfilePath": "Dockerfile"
-  },
-  "deploy": {
-    "runtime": "V2",
-    "numReplicas": 1,
-    "startCommand": "python -m dr_manhattan.mcp.server_sse",
-    "sleepApplication": false,
-    "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 10
-  }
-}
+ewogICIkc2NoZW1hIjogImh0dHBzOi8vcmFpbHdheS5jb20vcmFpbHdheS5zY2hlbWEuanNvbiIsCiAgImJ1aWxkIjogewogICAgImJ1aWxkZXIiOiAiRE9DS0VSRklMRSIsCiAgICAiZG9ja2VyZmlsZVBhdGgiOiAiRG9ja2VyZmlsZSIKICB9LAogICJkZXBsb3kiOiB7CiAgICAicnVudGltZSI6ICJWMiIsCiAgICAibnVtUmVwbGljYXMiOiAxLAogICAgInN0YXJ0Q29tbWFuZCI6ICJweXRob24gLW0gZHJfbWFuaGF0dGFuLm1jcC5zZXJ2ZXJfc3NlIiwKICAgICJzbGVlcEFwcGxpY2F0aW9uIjogZmFsc2UsCiAgICAicmVzdGFydFBvbGljeVR5cGUiOiAiT05fRkFJTFVSRSIsCiAgICAicmVzdGFydFBvbGljeU1heFJldHJpZXMiOiAxMAogIH0KfQo=
