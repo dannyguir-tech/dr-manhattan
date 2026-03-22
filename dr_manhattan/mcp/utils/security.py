@@ -155,6 +155,7 @@ def get_credentials_from_headers(headers: Dict[str, str]) -> Dict[str, Dict[str,
 
         # Fallback to environment variables for Polymarket Builder credentials
         if exchange == "polymarket":
+            exchange_creds = all_creds.get(exchange) or {}
             fallbacks = {
                 "api_key": os.environ.get("BUILDER_API_KEY"),
                 "api_secret": os.environ.get("BUILDER_SECRET"),
