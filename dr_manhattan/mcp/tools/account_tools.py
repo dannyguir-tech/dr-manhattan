@@ -234,6 +234,7 @@ def _is_builder_or_operator(exch: Any) -> bool:
     try:
         from dr_manhattan.exchanges.polymarket.polymarket_builder import PolymarketBuilder
         from dr_manhattan.exchanges.polymarket.polymarket_operator import PolymarketOperator
+
         return isinstance(exch, (PolymarketBuilder, PolymarketOperator))
     except ImportError:
         return False
@@ -313,9 +314,7 @@ def fetch_balance(exchange: str) -> Dict[str, Any]:
         # Default: Use base project's fetch_balance
         client = exchange_manager.get_client(exchange)
         if client is None:
-            raise ValueError(
-                f"No client configured for exchange {exchange}. Check credentials."
-            )
+            raise ValueError(f"No client configured for exchange {exchange}. Check credentials.")
         balance = client.fetch_balance()
         result = serialize_model(balance)
 
@@ -360,9 +359,7 @@ def fetch_positions(exchange: str, market_id: Optional[str] = None) -> List[Dict
         market_id = validate_optional_market_id(market_id)
         client = exchange_manager.get_client(exchange)
         if client is None:
-            raise ValueError(
-                f"No client configured for exchange {exchange}. Check credentials."
-            )
+            raise ValueError(f"No client configured for exchange {exchange}. Check credentials.")
         positions = client.fetch_positions(market_id=market_id)
         return [serialize_model(p) for p in positions]
 
@@ -388,9 +385,7 @@ def fetch_positions_for_market(exchange: str, market_id: str) -> List[Dict[str, 
         market_id = validate_market_id(market_id)
         client = exchange_manager.get_client(exchange)
         if client is None:
-            raise ValueError(
-                f"No client configured for exchange {exchange}. Check credentials."
-            )
+            raise ValueError(f"No client configured for exchange {exchange}. Check credentials.")
 
         # Need market object
         exch = exchange_manager.get_exchange(exchange)
@@ -498,9 +493,7 @@ def calculate_nav(exchange: str, market_id: Optional[str] = None) -> Dict[str, A
         # Default: Use base project's calculate_nav
         client = exchange_manager.get_client(exchange)
         if client is None:
-            raise ValueError(
-                f"No client configured for exchange {exchange}. Check credentials."
-            )
+            raise ValueError(f"No client configured for exchange {exchange}. Check credentials.")
 
         # Get market if specified
         market = None
