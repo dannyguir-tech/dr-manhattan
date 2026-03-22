@@ -79,7 +79,7 @@ from starlette.middleware import Middleware  # noqa: E402
 from starlette.middleware.cors import CORSMiddleware  # noqa: E402
 from starlette.requests import Request  # noqa: E402
 from starlette.responses import JSONResponse, Response  # noqa: E402
-from starlette.routing import Route  # noqa: E402
+from starlette.routing import Mount, Route  # noqa: E402
 
 # Load environment variables
 env_path = Path(__file__).parent.parent.parent / ".env"
@@ -329,14 +329,10 @@ routes = [
     Route("/", endpoint=root, methods=["GET"]),
     Route("/health", endpoint=health_check, methods=["GET"]),
     Route("/sse", endpoint=handle_sse, methods=["GET"]),
+    Mount("/messages", app=handle_messages),
 ]
 
 app = Starlette(routes=routes, middleware=middleware)
-
-# Register /messages/ as a raw ASGI route to avoid Starlette double-response.
-# handle_messages is a raw ASGI callable (scope, receive, send) – not a
-# Starlette endpoint – so we use app.add_route instead of Route().
-app.add_route("/messages/", handle_messages, methods=["POST"])
 
 
 # =============================================================================
