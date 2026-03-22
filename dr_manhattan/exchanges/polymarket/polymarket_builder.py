@@ -66,10 +66,7 @@ class PolymarketBuilder(Polymarket):
         self._api_secret = str(_raw_secret) if _raw_secret is not None else None
         self._api_passphrase = str(_raw_passphrase) if _raw_passphrase is not None else None
 
-        # Set funder to a non-None string so that account_tools.fetch_balance
-        # does not hard-fail on the Polymarket branch's funder-wallet check.
-        # Builder mode has no funder wallet; use empty string as sentinel.
-        self.funder = self.config.get("funder") or ""
+        self.funder = self.config.get("funder") or None
 
         if not all([self._api_key, self._api_secret, self._api_passphrase]):
             raise AuthenticationError(

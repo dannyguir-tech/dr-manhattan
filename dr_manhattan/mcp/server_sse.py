@@ -1,1 +1,405 @@
-IiIiCkRyLiBNYW5oYXR0YW4gTUNQIFNlcnZlciAtIFNTRSBUcmFuc3BvcnQgZm9yIFJlbW90ZSBBY2Nlc3MKCkhUVFAtYmFzZWQgTUNQIHNlcnZlciB1c2luZyBTZXJ2ZXItU2VudCBFdmVudHMgKFNTRSkgdHJhbnNwb3J0LgpBbGxvd3MgcmVtb3RlIENsYXVkZSBEZXNrdG9wL0NvZGUgY29ubmVjdGlvbnMgd2l0aG91dCBsb2NhbCBpbnN0YWxsYXRpb24uCgpVc2FnZToKICAgIHB5dGhvbiAtbSBkcl9tYW5oYXR0YW4ubWNwLnNlcnZlcl9zc2UKCkVudmlyb25tZW50OgogICAgUE9SVDogU2VydmVyIHBvcnQgKGRlZmF1bHQ6IDgwODApCiAgICBMT0dfTEVWRUw6IExvZ2dpbmcgbGV2ZWwgKGRlZmF1bHQ6IElORk8pCgpTZWN1cml0eToKICAgIC0gV3JpdGUgb3BlcmF0aW9ucyBvbmx5IHN1cHBvcnRlZCBmb3IgUG9seW1hcmtldCAodmlhIEJ1aWxkZXIgcHJvZmlsZSkKICAgIC0gT3RoZXIgZXhjaGFuZ2VzIGFyZSByZWFkLW9ubHkgKG5vIHByaXZhdGUga2V5cyBvbiBzZXJ2ZXIpCiAgICAtIFBvbHltYXJrZXQgY3JlZGVudGlhbHM6IEFQSSBrZXksIHNlY3JldCwgcGFzc3BocmFzZSAobm8gcHJpdmF0ZSBrZXkpCiAgICAtIFNlbnNpdGl2ZSBoZWFkZXJzIG5ldmVyIGxvZ2dlZAogICAgLSBIVFRQUyByZXF1aXJlZCBpbiBwcm9kdWN0aW9uIChoYW5kbGVkIGJ5IFJhaWx3YXkvaG9zdGluZykKIiIiCgppbXBvcnQgYXN5bmNpbwppbXBvcnQgY29udGV4dHZhcnMKaW1wb3J0IGluc3BlY3QKaW1wb3J0IGpzb24KaW1wb3J0IGxvZ2dpbmcKaW1wb3J0IG9zCmltcG9ydCBzaWduYWwKaW1wb3J0IHN5cwpmcm9tIHBhdGhsaWIgaW1wb3J0IFBhdGgKZnJvbSB0eXBpbmcgaW1wb3J0IEFueSwgRGljdCwgTGlzdCwgT3B0aW9uYWwKCiMgPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KIyBDUklUSUNBTDogTG9nZ2VyIHBhdGNoaW5nIE1VU1QgaGFwcGVuIEJFRk9SRSBpbXBvcnRpbmcgZHJfbWFuaGF0dGFuIG1vZHVsZXMKIyA9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQoKCmRlZiBfbWNwX3NldHVwX2xvZ2dlcihuYW1lOiBzdHIgPSBOb25lLCBsZXZlbDogaW50ID0gbG9nZ2luZy5JTkZPKToKICAgICIiIk1DUC1jb21wYXRpYmxlIGxvZ2dlciB0aGF0IG91dHB1dHMgdG8gc3RkZXJyIHdpdGhvdXQgY29sb3JzLiIiIgogICAgbG9nZ2VyID0gbG9nZ2luZy5nZXRMb2dnZXIobmFtZSkKICAgIGxvZ2dlci5zZXRMZXZlbChsZXZlbCkKICAgIGxvZ2dlci5oYW5kbGVycyA9IFtdCgogICAgaGFuZGxlciA9IGxvZ2dpbmcuU3RyZWFtSGFuZGxlcihzeXMuc3RkZXJyKQogICAgaGFuZGxlci5zZXRGb3JtYXR0ZXIobG9nZ2luZy5Gb3JtYXR0ZXIoIlslKGFzY3RpbWUpc10gJShtZXNzYWdlKXMiLCBkYXRlZm10PSIlSDolTTolUyIpKQogICAgbG9nZ2VyLmFkZEhhbmRsZXIoaGFuZGxlcikKICAgIGxvZ2dlci5wcm9wYWdhdGUgPSBGYWxzZQoKICAgIHJldHVybiBsb2dnZXIKCgojIENvbmZpZ3VyZSByb290IGxvZ2dpbmcgdG8gdXNlIHN0ZGVyciBCRUZPUkUgYW55IGltcG9ydHMKbG9nX2xldmVsID0gZ2V0YXR0cihsb2dnaW5nLCBvcy5nZXRlbnYoIkxPR19MRVZFTCIsICJJTkZPIikudXBwZXIoKSwgbG9nZ2luZy5JTkZPKQpsb2dnaW5nLmJhc2ljQ29uZmlnKAogICAgbGV2ZWw9bG9nX2xldmVsLAogICAgZm9ybWF0PSJbJShhc2N0aW1lKXNdICUobWVzc2FnZSlzIiwKICAgIGRhdGVmbXQ9IiVIOiVNOiVTIiwKICAgIHN0cmVhbT1zeXMuc3RkZXJyLAogICAgZm9yY2U9VHJ1ZSwKKQoKIyBQYXRjaCB0aGUgbG9nZ2VyIG1vZHVsZSBCRUZPUkUgaW1wb3J0aW5nIGRyX21hbmhhdHRhbi51dGlscwppbXBvcnQgZHJfbWFuaGF0dGFuLnV0aWxzLmxvZ2dlciBhcyBsb2dnZXJfbW9kdWxlICAjIG5vcWE6IEU0MDIKCmxvZ2dlcl9tb2R1bGUuc2V0dXBfbG9nZ2VyID0gX21jcF9zZXR1cF9sb2dnZXIKbG9nZ2VyX21vZHVsZS5kZWZhdWx0X2xvZ2dlciA9IF9tY3Bfc2V0dXBfbG9nZ2VyKCJkcl9tYW5oYXR0YW4iKQoKaW1wb3J0IGRyX21hbmhhdHRhbi51dGlscyAgIyBub3FhOiBFNDAyCgpkcl9tYW5oYXR0YW4udXRpbHMuc2V0dXBfbG9nZ2VyID0gX21jcF9zZXR1cF9sb2dnZXIKCiMgVGhpcmQtcGFydHkgaW1wb3J0cyBhZnRlciBwYXRjaGluZwpmcm9tIGRvdGVudiBpbXBvcnQgbG9hZF9kb3RlbnYgICMgbm9xYTogRTQwMgpmcm9tIG1jcC5zZXJ2ZXIgaW1wb3J0IFNlcnZlciAgIyBub3FhOiBFNDAyCmZyb20gbWNwLnNlcnZlci5zc2UgaW1wb3J0IFNzZVNlcnZlclRyYW5zcG9ydCAgIyBub3FhOiBFNDAyCmZyb20gbWNwLnR5cGVzIGltcG9ydCBUZXh0Q29udGVudCwgVG9vbCAgIyBub3FhOiBFNDAyCmZyb20gc3RhcmxldHRlLmFwcGxpY2F0aW9ucyBpbXBvcnQgU3RhcmxldHRlICAjIG5vcWE6IEU0MDIKZnJvbSBzdGFybGV0dGUubWlkZGxld2FyZSBpbXBvcnQgTWlkZGxld2FyZSAgIyBub3FhOiBFNDAyCmZyb20gc3RhcmxldHRlLm1pZGRsZXdhcmUuY29ycyBpbXBvcnQgQ09SU01pZGRsZXdhcmUgICMgbm9xYTogRTQwMgpmcm9tIHN0YXJsZXR0ZS5yZXF1ZXN0cyBpbXBvcnQgUmVxdWVzdCAgIyBub3FhOiBFNDAyCmZyb20gc3RhcmxldHRlLnJlc3BvbnNlcyBpbXBvcnQgSlNPTlJlc3BvbnNlLCBSZXNwb25zZSAgIyBub3FhOiBFNDAyCmZyb20gc3RhcmxldHRlLnJvdXRpbmcgaW1wb3J0IE1vdW50LCBSb3V0ZSAgIyBub3FhOiBFNDAyCgojIExvYWQgZW52aXJvbm1lbnQgdmFyaWFibGVzCmVudl9wYXRoID0gUGF0aChfX2ZpbGVfXykucGFyZW50LnBhcmVudC5wYXJlbnQgLyAiLmVudiIKbG9hZF9kb3RlbnYoZW52X3BhdGgpCgoKZGVmIGZpeF9hbGxfbG9nZ2VycygpOgogICAgIiIiUmVtb3ZlIEFMTCBoYW5kbGVycyBhbmQgY29uZmlndXJlIG9ubHkgcm9vdCBsb2dnZXIgd2l0aCBzdGRlcnIuIiIiCiAgICByb290X2xvZ2dlciA9IGxvZ2dpbmcuZ2V0TG9nZ2VyKCkKICAgIGZvciBoYW5kbGVyIGluIHJvb3RfbG9nZ2VyLmhhbmRsZXJzWzpdOgogICAgICAgIHJvb3RfbG9nZ2VyLnJlbW92ZUhhbmRsZXIoaGFuZGxlcikKCiAgICBmb3IgbmFtZSBpbiBsb2dnaW5nLkxvZ2dlci5tYW5hZ2VyLmxvZ2dlckRpY3Q6CiAgICAgICAgbG9nZ2VyX29iaiA9IGxvZ2dpbmcuZ2V0TG9nZ2VyKG5hbWUpCiAgICAgICAgaWYgbm90IGlzaW5zdGFuY2UobG9nZ2VyX29iaiwgbG9nZ2luZy5Mb2dnZXIpOgogICAgICAgICAgICBjb250aW51ZQogICAgICAgIGZvciBoYW5kbGVyIGluIGxvZ2dlcl9vYmouaGFuZGxlcnNbOl06CiAgICAgICAgICAgIGxvZ2dlcl9vYmoucmVtb3ZlSGFuZGxlcihoYW5kbGVyKQogICAgICAgIGxvZ2dlcl9vYmoucHJvcGFnYXRlID0gVHJ1ZQoKICAgIHN0ZGVycl9oYW5kbGVyID0gbG9nZ2luZy5TdHJlYW1IYW5kbGVyKHN5cy5zdGRlcnIpCiAgICBzdGRlcnJfaGFuZGxlci5zZXRGb3JtYXR0ZXIobG9nZ2luZy5Gb3JtYXR0ZXIoIlslKGFzY3RpbWUpc10gJShtZXNzYWdlKXMiLCBkYXRlZm10PSIlSDolTTolUyIpKQogICAgcm9vdF9sb2dnZXIuYWRkSGFuZGxlcihzdGRlcnJfaGFuZGxlcikKICAgIHJvb3RfbG9nZ2VyLnNldExldmVsKGxvZ19sZXZlbCkKCgojIEltcG9ydCBtb2R1bGVzIGFmdGVyIGxvZ2dlciBtb25rZXktcGF0Y2hpbmcKZnJvbSAuc2Vzc2lvbiBpbXBvcnQgKCAgIyBub3FhOiBFNDAyCiAgICBFeGNoYW5nZVNlc3Npb25NYW5hZ2VyLAogICAgU3RyYXRlZ3lTZXNzaW9uTWFuYWdlciwKICAgIHNldF9jb250ZXh0X2NyZWRlbnRpYWxzX2dldHRlciwKKQpmcm9tIC50b29scyBpbXBvcnQgVE9PTF9ESVNQQVRDSCwgZ2V0X3Rvb2xfZGVmaW5pdGlvbnMgICMgbm9xYTogRTQwMgpzeXMuc3RkZXJyLndyaXRlKGYiW0RJQUdOT1NUSUNdIFRPT0xfRElTUEFUQ0ggbG9hZGVkOiB7VE9PTF9ESVNQQVRDSCBpcyBub3QgTm9uZX0sIHR5cGU6IHt0eXBlKFRPT0xfRElTUEFUQ0gpfSwgbGVuOiB7bGVuKFRPT0xfRElTUEFUQ0gpIGlmIFRPT0xfRElTUEFUQ0ggaXMgbm90IE5vbmUgZWxzZSAwfQoiKQpzeXMuc3RkZXJyLmZsdXNoKCkKZnJvbSAudXRpbHMgaW1wb3J0ICggICMgbm9xYTogRTQwMgogICAgY2hlY2tfcmF0ZV9saW1pdCwKICAgIGdldF9jcmVkZW50aWFsc19mcm9tX2hlYWRlcnMsCiAgICBzYW5pdGl6ZV9oZWFkZXJzX2Zvcl9sb2dnaW5nLAogICAgdHJhbnNsYXRlX2Vycm9yLAogICAgdmFsaWRhdGVfd3JpdGVfb3BlcmF0aW9uLAopCgojIEZpeCBsb2dnZXJzIGltbWVkaWF0ZWx5IGFmdGVyIGltcG9ydHMKZml4X2FsbF9sb2dnZXJzKCkKCiMgR2V0IGxvZ2dlciBmb3IgdGhpcyBtb2R1bGUKbG9nZ2VyID0gbG9nZ2luZy5nZXRMb2dnZXIoX19uYW1lX18pCgojIENvbnRleHQgdmFyaWFibGUgdG8gc3RvcmUgY3VycmVudCByZXF1ZXN0IGNyZWRlbnRpYWxzLgojIERlZmF1bHQgdG8gYW4gZW1wdHkgZGljdCAobmV2ZXIgTm9uZSkgc28gY2FsbGVycyBjYW4gYWx3YXlzIHNhZmVseSBpdGVyYXRlLgpfcmVxdWVzdF9jcmVkZW50aWFsczogY29udGV4dHZhcnMuQ29udGV4dFZhcltEaWN0W3N0ciwgQW55XV0gPSBjb250ZXh0dmFycy5Db250ZXh0VmFyKAogICAgInJlcXVlc3RfY3JlZGVudGlhbHMiLCBkZWZhdWx0PXt9CikKCgpkZWYgZ2V0X2N1cnJlbnRfY3JlZGVudGlhbHMoKSAtPiBEaWN0W3N0ciwgQW55XToKICAgICIiIkdldCBjcmVkZW50aWFscyBmcm9tIGN1cnJlbnQgcmVxdWVzdCBjb250ZXh0LgoKICAgIEFsd2F5cyByZXR1cm5zIGEgZGljdCDigJMgbmV2ZXIgTm9uZSDigJMgc28gY2FsbGVycyBjYW4gc2FmZWx5IGRvCiAgICBgYGlmIGV4Y2hhbmdlIGluIGdldF9jdXJyZW50X2NyZWRlbnRpYWxzKClgYCB3aXRob3V0IGEgTm9uZS1jaGVjay4KICAgICIiIgogICAgcmV0dXJuIF9yZXF1ZXN0X2NyZWRlbnRpYWxzLmdldCgpIG9yIHt9CgoKIyBSZWdpc3RlciB0aGUgY3JlZGVudGlhbHMgZ2V0dGVyIHdpdGggZXhjaGFuZ2UgbWFuYWdlcgpzZXRfY29udGV4dF9jcmVkZW50aWFsc19nZXR0ZXIoZ2V0X2N1cnJlbnRfY3JlZGVudGlhbHMpCgojIEluaXRpYWxpemUgTUNQIHNlcnZlcgptY3BfYXBwID0gU2VydmVyKCJkci1tYW5oYXR0YW4iKQoKIyBTU0UgdHJhbnNwb3J0CnNzZV90cmFuc3BvcnQgPSBTc2VTZXJ2ZXJUcmFuc3BvcnQoIi9tZXNzYWdlcy8iKQoKIyBTZXNzaW9uIG1hbmFnZXJzCmV4Y2hhbmdlX21hbmFnZXIgPSBFeGNoYW5nZVNlc3Npb25NYW5hZ2VyKCkKc3RyYXRlZ3lfbWFuYWdlciA9IFN0cmF0ZWd5U2Vzc2lvbk1hbmFnZXIoKQoKCiMgPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KIyBUb29sIFJlZ2lzdHJhdGlvbiAoc2hhcmVkIHdpdGggc2VydmVyLnB5IHZpYSB0b29scy5kZWZpbml0aW9ucykKIyA9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQoKCkBtY3BfYXBwLmxpc3RfdG9vbHMoKQphc3luYyBkZWYgbGlzdF90b29scygpIC0+IExpc3RbVG9vbF06CiAgICAiIiJMaXN0IGFsbCBhdmFpbGFibGUgTUNQIHRvb2xzLiIiIgogICAgcmV0dXJuIGdldF90b29sX2RlZmluaXRpb25zKCkKCgpAbWNwX2FwcC5jYWxsX3Rvb2woKQphc3luYyBkZWYgY2FsbF90b29sKG5hbWU6IHN0ciwgYXJndW1lbnRzOiBBbnkpIC0+IExpc3RbVGV4dENvbnRlbnRdOgogICAgIiIiSGFuZGxlIHRvb2wgZXhlY3V0aW9uIHdpdGggcmF0ZSBsaW1pdGluZyBhbmQgd3JpdGUgb3BlcmF0aW9uIHZhbGlkYXRpb24uIiIiCiAgICB0cnk6CiAgICAgICAgaWYgbm90IGNoZWNrX3JhdGVfbGltaXQoKToKICAgICAgICAgICAgcmFpc2UgVmFsdWVFcnJvcigiUmF0ZSBsaW1pdCBleGNlZWRlZC4gUGxlYXNlIHdhaXQgYmVmb3JlIG1ha2luZyBtb3JlIHJlcXVlc3RzLiIpCgogICAgICAgIGlmIG5hbWUgbm90IGluIFRPT0xfRElTUEFUQ0g6CiAgICAgICAgICAgIHJhaXNlIFZhbHVlRXJyb3IoZiJVbmtub3duIHRvb2w6IHtuYW1lfSIpCgogICAgICAgICMgVmFsaWRhdGUgd3JpdGUgb3BlcmF0aW9ucyAtIG9ubHkgUG9seW1hcmtldCBhbGxvd2VkIHZpYSBCdWlsZGVyIHByb2ZpbGUKICAgICAgICBleGNoYW5nZSA9IGFyZ3VtZW50cy5nZXQoImV4Y2hhbmdlIikgaWYgaXNpbnN0YW5jZShhcmd1bWVudHMsIGRpY3QpIGVsc2UgTm9uZQogICAgICAgIGlzX2FsbG93ZWQsIGVycm9yX21zZyA9IHZhbGlkYXRlX3dyaXRlX29wZXJhdGlvbihuYW1lLCBleGNoYW5nZSkKICAgICAgICBpZiBub3QgaXNfYWxsb3dlZDoKICAgICAgICAgICAgcmFpc2UgVmFsdWVFcnJvcihlcnJvcl9tc2cpCgogICAgICAgIGhhbmRsZXIsIHJlcXVpcmVzX2FyZ3MgPSBUT09MX0RJU1BBVENIW25hbWVdCiAgICAgICAgaWYgcmVxdWlyZXNfYXJnczoKICAgICAgICAgICAgcmVzdWx0ID0gaGFuZGxlcigqKmFyZ3VtZW50cykKICAgICAgICBlbHNlOgogICAgICAgICAgICByZXN1bHQgPSBoYW5kbGVyKCkKCiAgICAgICAgaWYgaW5zcGVjdC5pc2Nvcm91dGluZWZ1bmN0aW9uKGhhbmRsZXIpOgogICAgICAgICAgICByZXN1bHQgPSBhd2FpdCByZXN1bHQKCiAgICAgICAgcmV0dXJuIFtUZXh0Q29udGVudCh0eXBlPSJ0ZXh0IiwgdGV4dD1qc29uLmR1bXBzKHJlc3VsdCwgaW5kZW50PTIpKV0KCiAgICBleGNlcHQgRXhjZXB0aW9uIGFzIGU6CiAgICAgICAgbWNwX2Vycm9yID0gdHJhbnNsYXRlX2Vycm9yKGUsIHsidG9vbCI6IG5hbWUsICJhcmd1bWVudHMiOiBhcmd1bWVudHN9KQogICAgICAgIGVycm9yX3Jlc3BvbnNlID0geyJlcnJvciI6IG1jcF9lcnJvci50b19kaWN0KCl9CiAgICAgICAgcmV0dXJuIFtUZXh0Q29udGVudCh0eXBlPSJ0ZXh0IiwgdGV4dD1qc29uLmR1bXBzKGVycm9yX3Jlc3BvbnNlLCBpbmRlbnQ9MikpXQoKCiMgPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KIyBIVFRQIEhhbmRsZXJzCiMgPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KCgphc3luYyBkZWYgaGFuZGxlX3NzZShyZXF1ZXN0OiBSZXF1ZXN0KSAtPiBSZXNwb25zZToKICAgICIiIkhhbmRsZSBTU0UgY29ubmVjdGlvbiBmb3IgTUNQLiIiIgogICAgIyBFeHRyYWN0IGFuZCBsb2cgaGVhZGVycyAoc2FuaXRpemVkKQogICAgaGVhZGVycyA9IGRpY3QocmVxdWVzdC5oZWFkZXJzKQogICAgbG9nZ2VyLmluZm8oZiJTU0UgY29ubmVjdGlvbiBmcm9tIHtyZXF1ZXN0LmNsaWVudC5ob3N0IGlmIHJlcXVlc3QuY2xpZW50IGVsc2UgJ3Vua25vd24nfSIpCiAgICBsb2dnZXIuZGVidWcoZiJIZWFkZXJzIChzYW5pdGl6ZWQpOiB7c2FuaXRpemVfaGVhZGVyc19mb3JfbG9nZ2luZyhoZWFkZXJzKX0iKQoKICAgICMgRXh0cmFjdCBjcmVkZW50aWFscyBmcm9tIGhlYWRlcnMgYW5kIHN0b3JlIGluIGNvbnRleHQKICAgIGNyZWRlbnRpYWxzID0gZ2V0X2NyZWRlbnRpYWxzX2Zyb21faGVhZGVycyhoZWFkZXJzKQogICAgdG9rZW4gPSBfcmVxdWVzdF9jcmVkZW50aWFscy5zZXQoY3JlZGVudGlhbHMpCgogICAgdHJ5OgogICAgICAgIGFzeW5jIHdpdGggc3NlX3RyYW5zcG9ydC5jb25uZWN0X3NzZSgKICAgICAgICAgICAgcmVxdWVzdC5zY29wZSwgcmVxdWVzdC5yZWNlaXZlLCByZXF1ZXN0Ll9zZW5kCiAgICAgICAgKSBhcyBzdHJlYW1zOgogICAgICAgICAgICBhd2FpdCBtY3BfYXBwLnJ1bihzdHJlYW1zWzBdLCBzdHJlYW1zWzFdLCBtY3BfYXBwLmNyZWF0ZV9pbml0aWFsaXphdGlvbl9vcHRpb25zKCkpCiAgICBmaW5hbGx5OgogICAgICAgIF9yZXF1ZXN0X2NyZWRlbnRpYWxzLnJlc2V0KHRva2VuKQoKICAgIHJldHVybiBSZXNwb25zZSgpCgoKYXN5bmMgZGVmIGhhbmRsZV9tZXNzYWdlcyhzY29wZSwgcmVjZWl2ZSwgc2VuZCk6CiAgICAiIiJIYW5kbGUgUE9TVCBtZXNzYWdlcyBmb3IgU1NFIHRyYW5zcG9ydC4KCiAgICBEZWZpbmVkIGFzIGEgcmF3IEFTR0kgY2FsbGFibGUgc28gdGhhdCBzc2VfdHJhbnNwb3J0LmhhbmRsZV9wb3N0X21lc3NhZ2UKICAgICh3aGljaCBpcyBpdHNlbGYgYSByYXcgQVNHSSBhcHApIHdyaXRlcyB0aGUgSFRUUCByZXNwb25zZSBkaXJlY3RseSB2aWEKICAgIHRoZSBBU0dJICdzZW5kJyBjYWxsYWJsZSB3aXRob3V0IHRyaWdnZXJpbmcgYSBTdGFybGV0dGUgZG91YmxlLXJlc3BvbnNlCiAgICBSdW50aW1lRXJyb3IuICBXZSB1c2UgUmVxdWVzdCBvbmx5IHRvIHJlYWQgaGVhZGVycyBhbmQgc2V0IHRoZSBDb250ZXh0VmFyOwogICAgd2UgbmV2ZXIgYXNrIFN0YXJsZXR0ZSB0byBzZW5kIGFueSByZXNwb25zZSBvZiBvdXIgb3duLgogICAgIiIiCiAgICAjIFJlYWQgaGVhZGVycyB2aWEgYSBsaWdodHdlaWdodCBSZXF1ZXN0IHdyYXBwZXIgKG5vIGJvZHkgY29uc3VtZWQpLgogICAgcmVxdWVzdCA9IFJlcXVlc3Qoc2NvcGUsIHJlY2VpdmUsIHNlbmQpCiAgICBoZWFkZXJzID0gZGljdChyZXF1ZXN0LmhlYWRlcnMpCgogICAgIyBFeHRyYWN0IGNyZWRlbnRpYWxzIGZvciB0aGlzIHJlcXVlc3QgYW5kIHN0b3JlIGluIGNvbnRleHQuCiAgICBjcmVkZW50aWFscyA9IGdldF9jcmVkZW50aWFsc19mcm9tX2hlYWRlcnMoaGVhZGVycykKICAgIHRva2VuID0gX3JlcXVlc3RfY3JlZGVudGlhbHMuc2V0KGNyZWRlbnRpYWxzKQoKICAgIHRyeToKICAgICAgICAjIERlbGVnYXRlIGZ1bGx5IHRvIHRoZSB0cmFuc3BvcnQg4oCTIGl0IG93bnMgdGhlIEFTR0kgc2VuZCBjYWxsYWJsZQogICAgICAgICMgYW5kIHNlbmRzIHRoZSBjb21wbGV0ZSBIVFRQIHJlc3BvbnNlIGl0c2VsZi4KICAgICAgICBhd2FpdCBzc2VfdHJhbnNwb3J0LmhhbmRsZV9wb3N0X21lc3NhZ2Uoc2NvcGUsIHJlY2VpdmUsIHNlbmQpCiAgICBmaW5hbGx5OgogICAgICAgIF9yZXF1ZXN0X2NyZWRlbnRpYWxzLnJlc2V0KHRva2VuKQoKCmFzeW5jIGRlZiBoZWFsdGhfY2hlY2socmVxdWVzdDogUmVxdWVzdCkgLT4gSlNPTlJlc3BvbnNlOgogICAgIiIiSGVhbHRoIGNoZWNrIGVuZHBvaW50LiIiIgogICAgcmV0dXJuIEpTT05SZXNwb25zZSgKICAgICAgICB7CiAgICAgICAgICAgICJzdGF0dXMiOiAiaGVhbHRoeSIsCiAgICAgICAgICAgICJzZXJ2aWNlIjogImRyLW1hbmhhdHRhbi1tY3AiLAogICAgICAgICAgICAidHJhbnNwb3J0IjogInNzZSIsCiAgICAgICAgICAgICJ2ZXJzaW9uIjogIjAuMC4yIiwKICAgICAgICB9CiAgICApCgoKYXN5bmMgZGVmIHJvb3QocmVxdWVzdDogUmVxdWVzdCkgLT4gSlNPTlJlc3BvbnNlOgogICAgIiIiUm9vdCBlbmRwb2ludCB3aXRoIHVzYWdlIGluZm8uIiIiCiAgICByZXR1cm4gSlNPTlJlc3BvbnNlKAogICAgICAgIHsKICAgICAgICAgICAgInNlcnZpY2UiOiAiRHIuIE1hbmhhdHRhbiBNQ1AgU2VydmVyIiwKICAgICAgICAgICAgInRyYW5zcG9ydCI6ICJTU0UiLAogICAgICAgICAgICAiZW5kcG9pbnRzIjogewogICAgICAgICAgICAgICAgIi9zc2UiOiAiTUNQIFNTRSBjb25uZWN0aW9uIGVuZHBvaW50IiwKICAgICAgICAgICAgICAgICIvbWVzc2FnZXMvIjogIk1DUCBtZXNzYWdlIGhhbmRsaW5nIiwKICAgICAgICAgICAgICAgICIvaGVhbHRoIjogIkhlYWx0aCBjaGVjayIsCiAgICAgICAgICAgIH0sCiAgICAgICAgICAgICJzZWN1cml0eSI6IHsKICAgICAgICAgICAgICAgICJ3cml0ZV9vcGVyYXRpb25zIjogIlBvbHltYXJrZXQgb25seSAodmlhIEJ1aWxkZXIgcHJvZmlsZSkiLAogICAgICAgICAgICAgICAgIm90aGVyX2V4Y2hhbmdlcyI6ICJSZWFkLW9ubHkgKGZldGNoX21hcmtldHMsIGZldGNoX29yZGVyYm9vaywgZXRjLikiLAogICAgICAgICAgICB9LAogICAgICAgICAgICAidXNhZ2UiOiB7CiAgICAgICAgICAgICAgICAicmVhZF9vbmx5IjogewogICAgICAgICAgICAgICAgICAgICJ1cmwiOiAiaHR0cHM6Ly88eW91ci1kb21haW4+L3NzZSIsCiAgICAgICAgICAgICAgICAgICAgIm5vdGUiOiAiTm8gaGVhZGVycyBuZWVkZWQgZm9yIHJlYWQtb25seSBhY2Nlc3MiLAogICAgICAgICAgICAgICAgfSwKICAgICAgICAgICAgICAgICJwb2x5bWFya2V0X3RyYWRpbmciOiB7CiAgICAgICAgICAgICAgICAgICAgInVybCI6ICJodHRwczovLzx5b3VyLWRvbWFpbj4vc3NlIiwKICAgICAgICAgICAgICAgICAgICAiaGVhZGVycyI6IHsKICAgICAgICAgICAgICAgICAgICAgICAgIlgtUG9seW1hcmtldC1BcGktS2V5IjogIjx5b3VyLWFwaS1rZXk+IiwKICAgICAgICAgICAgICAgICAgICAgICAgIlgtUG9seW1hcmtldC1BcGktU2VjcmV0IjogIjx5b3VyLWFwaS1zZWNyZXQ+IiwKICAgICAgICAgICAgICAgICAgICAgICAgIlgtUG9seW1hcmtldC1QYXNzcGhyYXNlIjogIjx5b3VyLXBhc3NwaHJhc2U+IiwKICAgICAgICAgICAgICAgICAgICB9LAogICAgICAgICAgICAgICAgICAgICJub3RlIjogIkdldCBjcmVkZW50aWFscyBmcm9tIFBvbHltYXJrZXQgQnVpbGRlciBwcm9maWxlIiwKICAgICAgICAgICAgICAgIH0sCiAgICAgICAgICAgIH0sCiAgICAgICAgfQogICAgKQoKCiMgPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KIyBTdGFybGV0dGUgQXBwCiMgPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KCiMgQ09SUyBjb25maWd1cmF0aW9uIC0gcmVzdHJpY3Qgb3JpZ2lucyBmb3Igc2VjdXJpdHkKIyBNQ1AgY2xpZW50cyAoQ2xhdWRlIERlc2t0b3AvQ29kZSkgdHlwaWNhbGx5IGRvbid0IHNlbmQgT3JpZ2luIGhlYWRlcnMsCiMgc28gd2UgYWxsb3cgc3BlY2lmaWMga25vd24gb3JpZ2lucyBhbmQgaGFuZGxlIG5vLW9yaWdpbiByZXF1ZXN0cwpfY29yc19vcmlnaW5zX2VudiA9IG9zLmdldGVudigiQ09SU19BTExPV0VEX09SSUdJTlMiLCAiIikKQUxMT1dFRF9PUklHSU5TOiBMaXN0W3N0cl0gPSBbby5zdHJpcCgpIGZvciBvIGluIF9jb3JzX29yaWdpbnNfZW52LnNwbGl0KCIsIikgaWYgby5zdHJpcCgpXQppZiBub3QgQUxMT1dFRF9PUklHSU5TOgogICAgIyBEZWZhdWx0OiBrbm93biBNQ1AgY2xpZW50IG9yaWdpbnMKICAgIEFMTE9XRURfT1JJR0lOUyA9IFsKICAgICAgICAiaHR0cHM6Ly9jbGF1ZGUuYWkiLAogICAgICAgICJodHRwczovL2NvbnNvbGUuYW50aHJvcGljLmNvbSIsCiAgICBdCgptaWRkbGV3YXJlID0gWwogICAgTWlkZGxld2FyZSgKICAgICAgICBDT1JTTWlkZGxld2FyZSwKICAgICAgICBhbGxvd19vcmlnaW5zPUFMTE9XRURfT1JJR0lOUywKICAgICAgICBhbGxvd19tZXRob2RzPVsiR0VUIiwgIlBPU1QiLCAiT1BUSU9OUyJdLAogICAgICAgIGFsbG93X2hlYWRlcnM9WyIqIl0sCiAgICAgICAgYWxsb3dfY3JlZGVudGlhbHM9VHJ1ZSwKICAgICkKXQoKcm91dGVzID0gWwogICAgUm91dGUoIi8iLCBlbmRwb2ludD1yb290LCBtZXRob2RzPVsiR0VUIl0pLAogICAgUm91dGUoIi9oZWFsdGgiLCBlbmRwb2ludD1oZWFsdGhfY2hlY2ssIG1ldGhvZHM9WyJHRVQiXSksCiAgICBSb3V0ZSgiL3NzZSIsIGVuZHBvaW50PWhhbmRsZV9zc2UsIG1ldGhvZHM9WyJHRVQiXSksCiAgICBNb3VudCgiL21lc3NhZ2VzIiwgYXBwPWhhbmRsZV9tZXNzYWdlcyksCl0KCmFwcCA9IFN0YXJsZXR0ZShyb3V0ZXM9cm91dGVzLCBtaWRkbGV3YXJlPW1pZGRsZXdhcmUpCgoKIyA9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQojIENsZWFudXAgYW5kIE1haW4KIyA9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQoKX3NodXRkb3duX3JlcXVlc3RlZCA9IEZhbHNlCgoKZGVmIGNsZWFudXBfaGFuZGxlcihzaWdudW0sIGZyYW1lKToKICAgICIiIkhhbmRsZSBzaHV0ZG93biBzaWduYWwuIiIiCiAgICBnbG9iYWwgX3NodXRkb3duX3JlcXVlc3RlZAogICAgX3NodXRkb3duX3JlcXVlc3RlZCA9IFRydWUKICAgIHN5cy5zdGRlcnIud3JpdGUoIltTSUdOQUxdIFNodXRkb3duIHJlcXVlc3RlZCwgY2xlYW5pbmcgdXAuLi5cbiIpCiAgICBzeXMuc3RkZXJyLmZsdXNoKCkKCgphc3luYyBkZWYgY2xlYW51cCgpOgogICAgIiIiQ2xlYW51cCByZXNvdXJjZXMgb24gc2h1dGRvd24uIiIiCiAgICBsb2dnZXIuaW5mbygiU2h1dHRpbmcgZG93biBNQ1AgU1NFIHNlcnZlci4uLiIpCiAgICBhd2FpdCBhc3luY2lvLnRvX3RocmVhZChzdHJhdGVneV9tYW5hZ2VyLmNsZWFudXApCiAgICBhd2FpdCBhc3luY2lvLnRvX3RocmVhZChleGNoYW5nZV9tYW5hZ2VyLmNsZWFudXApCiAgICBsb2dnZXIuaW5mbygiQ2xlYW51cCBjb21wbGV0ZSIpCgoKZGVmIF92YWxpZGF0ZV9lbnYoKSAtPiB0dXBsZVtzdHIsIGludF06CiAgICAiIiJWYWxpZGF0ZSBhbmQgcmV0dXJuIGVudmlyb25tZW50IGNvbmZpZ3VyYXRpb24uIiIiCiAgICBob3N0ID0gb3MuZ2V0ZW52KCJIT1NUIiwgIjAuMC4wLjAiKQogICAgcG9ydF9zdHIgPSBvcy5nZXRlbnYoIlBPUlQiLCAiODA4MCIpCgogICAgIyBWYWxpZGF0ZSBwb3J0CiAgICB0cnk6CiAgICAgICAgcG9ydCA9IGludChwb3J0X3N0cikKICAgICAgICBpZiBub3QgKDEgPD0gcG9ydCA8PSA2NTUzNSk6CiAgICAgICAgICAgIHJhaXNlIFZhbHVlRXJyb3IoZiJQb3J0IG11c3QgYmUgMS02NTUzNSwgZ290IHtwb3J0fSIpCiAgICBleGNlcHQgVmFsdWVFcnJvciBhcyBlOgogICAgICAgIGxvZ2dlci5lcnJvcihmIkludmFsaWQgUE9SVDoge2V9IikKICAgICAgICByYWlzZSBTeXN0ZW1FeGl0KDEpCgogICAgIyBWYWxpZGF0ZSBsb2cgbGV2ZWwKICAgIGxvZ19sZXZlbF9zdHIgPSBvcy5nZXRlbnYoIkxPR19MRVZFTCIsICJJTkZPIikudXBwZXIoKQogICAgaWYgbG9nX2xldmVsX3N0ciBub3QgaW4gKCJERUJVRyIsICJJTkZPIiwgIldBUk5JTkciLCAiRVJST1IiLCAiQ1JJVElDQUwiKToKICAgICAgICBsb2dnZXIud2FybmluZyhmIkludmFsaWQgTE9HX0xFVkVMICd7bG9nX2xldmVsX3N0cn0nLCB1c2luZyBJTkZPIikKCiAgICByZXR1cm4gaG9zdCwgcG9ydAoKCmRlZiBydW5fc3NlKCk6CiAgICAiIiJSdW4gdGhlIFNTRSBzZXJ2ZXIuIiIiCiAgICBpbXBvcnQgdXZpY29ybgoKICAgIHNpZ25hbC5zaWduYWwoc2lnbmFsLlNJR0lOVCwgY2xlYW51cF9oYW5kbGVyKQogICAgc2lnbmFsLnNpZ25hbChzaWduYWwuU0lHVEVSTSwgY2xlYW51cF9oYW5kbGVyKQoKICAgIGhvc3QsIHBvcnQgPSBfdmFsaWRhdGVfZW52KCkKCiAgICBsb2dnZXIuaW5mbyhmIlN0YXJ0aW5nIERyLiBNYW5oYXR0YW4gTUNQIFNTRSBTZXJ2ZXIgb24ge2hvc3R9Ontwb3J0fSIpCiAgICBsb2dnZXIuaW5mbyhmIkNPUlMgYWxsb3dlZCBvcmlnaW5zOiB7QUxMT1dFRF9PUklHSU5TfSIpCgogICAgdXZpY29ybi5ydW4oCiAgICAgICAgYXBwLAogICAgICAgIGhvc3Q9aG9zdCwKICAgICAgICBwb3J0PXBvcnQsCiAgICAgICAgbG9nX2xldmVsPSJpbmZvIiwKICAgICAgICBhY2Nlc3NfbG9nPVRydWUsCiAgICApCgoKaWYgX19uYW1lX18gPT0gIl9fbWFpbl9fIjoKICAgIHJ1bl9zc2UoKQo=
+"""
+Dr. Manhattan MCP Server - SSE Transport for Remote Access
+
+HTTP-based MCP server using Server-Sent Events (SSE) transport.
+Allows remote Claude Desktop/Code connections without local installation.
+
+Usage:
+    python -m dr_manhattan.mcp.server_sse
+
+Environment:
+    PORT: Server port (default: 8080)
+    LOG_LEVEL: Logging level (default: INFO)
+
+Security:
+    - Write operations only supported for Polymarket (via Builder profile)
+    - Other exchanges are read-only (no private keys on server)
+    - Polymarket credentials: API key, secret, passphrase (no private key)
+    - Sensitive headers never logged
+    - HTTPS required in production (handled by Railway/hosting)
+"""
+
+import asyncio
+import contextvars
+import inspect
+import json
+import logging
+import os
+import signal
+import sys
+from pathlib import Path
+from typing import Any, Dict, List
+
+# =============================================================================
+# CRITICAL: Logger patching MUST happen BEFORE importing dr_manhattan modules
+# =============================================================================
+
+
+def _mcp_setup_logger(name: str = None, level: int = logging.INFO):
+    """MCP-compatible logger that outputs to stderr without colors."""
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    logger.handlers = []
+
+    handler = logging.StreamHandler(sys.stderr)
+    handler.setFormatter(logging.Formatter("[%(asctime)s] %(message)s", datefmt="%H:%M:%S"))
+    logger.addHandler(handler)
+    logger.propagate = False
+
+    return logger
+
+
+# Configure root logging to use stderr BEFORE any imports
+log_level = getattr(logging, os.getenv("LOG_LEVEL", "INFO").upper(), logging.INFO)
+logging.basicConfig(
+    level=log_level,
+    format="[%(asctime)s] %(message)s",
+    datefmt="%H:%M:%S",
+    stream=sys.stderr,
+    force=True,
+)
+
+# Patch the logger module BEFORE importing dr_manhattan.utils
+import dr_manhattan.utils.logger as logger_module  # noqa: E402
+
+logger_module.setup_logger = _mcp_setup_logger
+logger_module.default_logger = _mcp_setup_logger("dr_manhattan")
+
+import dr_manhattan.utils  # noqa: E402
+
+dr_manhattan.utils.setup_logger = _mcp_setup_logger
+
+# Third-party imports after patching
+from dotenv import load_dotenv  # noqa: E402
+from mcp.server import Server  # noqa: E402
+from mcp.server.sse import SseServerTransport  # noqa: E402
+from mcp.types import TextContent, Tool  # noqa: E402
+from starlette.applications import Starlette  # noqa: E402
+from starlette.middleware import Middleware  # noqa: E402
+from starlette.middleware.cors import CORSMiddleware  # noqa: E402
+from starlette.requests import Request  # noqa: E402
+from starlette.responses import JSONResponse, Response  # noqa: E402
+from starlette.routing import Mount, Route  # noqa: E402
+
+# Load environment variables
+env_path = Path(__file__).parent.parent.parent / ".env"
+load_dotenv(env_path)
+
+
+def fix_all_loggers():
+    """Remove ALL handlers and configure only root logger with stderr."""
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+
+    for name in logging.Logger.manager.loggerDict:
+        logger_obj = logging.getLogger(name)
+        if not isinstance(logger_obj, logging.Logger):
+            continue
+        for handler in logger_obj.handlers[:]:
+            logger_obj.removeHandler(handler)
+        logger_obj.propagate = True
+
+    stderr_handler = logging.StreamHandler(sys.stderr)
+    stderr_handler.setFormatter(logging.Formatter("[%(asctime)s] %(message)s", datefmt="%H:%M:%S"))
+    root_logger.addHandler(stderr_handler)
+    root_logger.setLevel(log_level)
+
+
+# Import modules after logger monkey-patching
+from .session import (  # noqa: E402
+    ExchangeSessionManager,
+    StrategySessionManager,
+    set_context_credentials_getter,
+)
+from .tools import TOOL_DISPATCH, get_tool_definitions  # noqa: E402
+from .utils import (  # noqa: E402
+    check_rate_limit,
+    get_credentials_from_headers,
+    sanitize_headers_for_logging,
+    translate_error,
+    validate_write_operation,
+)
+
+# Fix loggers immediately after imports
+fix_all_loggers()
+
+# Get logger for this module
+logger = logging.getLogger(__name__)
+
+# Context variable to store current request credentials.
+# Default to an empty dict (never None) so callers can always safely iterate.
+_request_credentials: contextvars.ContextVar[Dict[str, Any]] = contextvars.ContextVar(
+    "request_credentials", default={}
+)
+
+
+def get_current_credentials() -> Dict[str, Any]:
+    """Get credentials from current request context.
+
+    Always returns a dict – never None – so callers can safely do
+    ``if exchange in get_current_credentials()`` without a None-check.
+    """
+    return _request_credentials.get() or {}
+
+
+# Register the credentials getter with exchange manager
+set_context_credentials_getter(get_current_credentials)
+
+# Initialize MCP server
+mcp_app = Server("dr-manhattan")
+
+# SSE transport
+sse_transport = SseServerTransport("/messages/")
+
+# Session managers
+exchange_manager = ExchangeSessionManager()
+strategy_manager = StrategySessionManager()
+
+
+# =============================================================================
+# Tool Registration (shared with server.py via tools.definitions)
+# =============================================================================
+
+
+@mcp_app.list_tools()
+async def list_tools() -> List[Tool]:
+    """List all available MCP tools."""
+    return get_tool_definitions()
+
+
+@mcp_app.call_tool()
+async def call_tool(name: str, arguments: Any) -> List[TextContent]:
+    """Handle tool execution with rate limiting and write operation validation."""
+    try:
+        if not check_rate_limit():
+            raise ValueError("Rate limit exceeded. Please wait before making more requests.")
+
+        if name not in TOOL_DISPATCH:
+            raise ValueError(f"Unknown tool: {name}")
+
+        # Validate write operations - only Polymarket allowed via Builder profile
+        exchange = arguments.get("exchange") if isinstance(arguments, dict) else None
+        is_allowed, error_msg = validate_write_operation(name, exchange)
+        if not is_allowed:
+            raise ValueError(error_msg)
+
+        handler, requires_args = TOOL_DISPATCH[name]
+        if requires_args:
+            result = handler(**arguments)
+        else:
+            result = handler()
+
+        if inspect.iscoroutinefunction(handler):
+            result = await result
+
+        return [TextContent(type="text", text=json.dumps(result, indent=2))]
+
+    except Exception as e:
+        mcp_error = translate_error(e, {"tool": name, "arguments": arguments})
+        error_response = {"error": mcp_error.to_dict()}
+        return [TextContent(type="text", text=json.dumps(error_response, indent=2))]
+
+
+# =============================================================================
+# HTTP Handlers
+# =============================================================================
+
+
+async def handle_sse(request: Request) -> Response:
+    """Handle SSE connection for MCP."""
+    # Extract and log headers (sanitized)
+    headers = dict(request.headers)
+    logger.info(f"SSE connection from {request.client.host if request.client else 'unknown'}")
+    logger.debug(f"Headers (sanitized): {sanitize_headers_for_logging(headers)}")
+
+    # Extract credentials from headers and store in context
+    credentials = get_credentials_from_headers(headers)
+    token = _request_credentials.set(credentials)
+
+    try:
+        async with sse_transport.connect_sse(
+            request.scope, request.receive, request._send
+        ) as streams:
+            await mcp_app.run(streams[0], streams[1], mcp_app.create_initialization_options())
+    finally:
+        _request_credentials.reset(token)
+
+    return Response()
+
+
+async def handle_messages(scope, receive, send):
+    """Handle POST messages for SSE transport.
+
+    Defined as a raw ASGI callable so that sse_transport.handle_post_message
+    (which is itself a raw ASGI app) writes the HTTP response directly via
+    the ASGI 'send' callable without triggering a Starlette double-response
+    RuntimeError.  We use Request only to read headers and set the ContextVar;
+    we never ask Starlette to send any response of our own.
+    """
+    # Read headers via a lightweight Request wrapper (no body consumed).
+    request = Request(scope, receive, send)
+    headers = dict(request.headers)
+
+    # Extract credentials for this request and store in context.
+    credentials = get_credentials_from_headers(headers)
+    token = _request_credentials.set(credentials)
+
+    try:
+        # Delegate fully to the transport – it owns the ASGI send callable
+        # and sends the complete HTTP response itself.
+        await sse_transport.handle_post_message(scope, receive, send)
+    finally:
+        _request_credentials.reset(token)
+
+
+async def health_check(request: Request) -> JSONResponse:
+    """Health check endpoint."""
+    return JSONResponse(
+        {
+            "status": "healthy",
+            "service": "dr-manhattan-mcp",
+            "transport": "sse",
+            "version": "0.0.2",
+        }
+    )
+
+
+async def root(request: Request) -> JSONResponse:
+    """Root endpoint with usage info."""
+    return JSONResponse(
+        {
+            "service": "Dr. Manhattan MCP Server",
+            "transport": "SSE",
+            "endpoints": {
+                "/sse": "MCP SSE connection endpoint",
+                "/messages/": "MCP message handling",
+                "/health": "Health check",
+            },
+            "security": {
+                "write_operations": "Polymarket only (via Builder profile)",
+                "other_exchanges": "Read-only (fetch_markets, fetch_orderbook, etc.)",
+            },
+            "usage": {
+                "read_only": {
+                    "url": "https://<your-domain>/sse",
+                    "note": "No headers needed for read-only access",
+                },
+                "polymarket_trading": {
+                    "url": "https://<your-domain>/sse",
+                    "headers": {
+                        "X-Polymarket-Api-Key": "<your-api-key>",
+                        "X-Polymarket-Api-Secret": "<your-api-secret>",
+                        "X-Polymarket-Passphrase": "<your-passphrase>",
+                    },
+                    "note": "Get credentials from Polymarket Builder profile",
+                },
+            },
+        }
+    )
+
+
+# =============================================================================
+# Starlette App
+# =============================================================================
+
+# CORS configuration - restrict origins for security
+# MCP clients (Claude Desktop/Code) typically don't send Origin headers,
+# so we allow specific known origins and handle no-origin requests
+_cors_origins_env = os.getenv("CORS_ALLOWED_ORIGINS", "")
+ALLOWED_ORIGINS: List[str] = [o.strip() for o in _cors_origins_env.split(",") if o.strip()]
+if not ALLOWED_ORIGINS:
+    # Default: known MCP client origins
+    ALLOWED_ORIGINS = [
+        "https://claude.ai",
+        "https://console.anthropic.com",
+    ]
+
+middleware = [
+    Middleware(
+        CORSMiddleware,
+        allow_origins=ALLOWED_ORIGINS,
+        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_headers=["*"],
+        allow_credentials=True,
+    )
+]
+
+routes = [
+    Route("/", endpoint=root, methods=["GET"]),
+    Route("/health", endpoint=health_check, methods=["GET"]),
+    Route("/sse", endpoint=handle_sse, methods=["GET"]),
+    Mount("/messages", app=handle_messages),
+]
+
+app = Starlette(routes=routes, middleware=middleware)
+
+
+# =============================================================================
+# Cleanup and Main
+# =============================================================================
+
+_shutdown_requested = False
+
+
+def cleanup_handler(signum, frame):
+    """Handle shutdown signal."""
+    global _shutdown_requested
+    _shutdown_requested = True
+    sys.stderr.write("[SIGNAL] Shutdown requested, cleaning up...\n")
+    sys.stderr.flush()
+
+
+async def cleanup():
+    """Cleanup resources on shutdown."""
+    logger.info("Shutting down MCP SSE server...")
+    await asyncio.to_thread(strategy_manager.cleanup)
+    await asyncio.to_thread(exchange_manager.cleanup)
+    logger.info("Cleanup complete")
+
+
+def _validate_env() -> tuple[str, int]:
+    """Validate and return environment configuration."""
+    host = os.getenv("HOST", "0.0.0.0")
+    port_str = os.getenv("PORT", "8080")
+
+    # Validate port
+    try:
+        port = int(port_str)
+        if not (1 <= port <= 65535):
+            raise ValueError(f"Port must be 1-65535, got {port}")
+    except ValueError as e:
+        logger.error(f"Invalid PORT: {e}")
+        raise SystemExit(1)
+
+    # Validate log level
+    log_level_str = os.getenv("LOG_LEVEL", "INFO").upper()
+    if log_level_str not in ("DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"):
+        logger.warning(f"Invalid LOG_LEVEL '{log_level_str}', using INFO")
+
+    return host, port
+
+
+def run_sse():
+    """Run the SSE server."""
+    import uvicorn
+
+    signal.signal(signal.SIGINT, cleanup_handler)
+    signal.signal(signal.SIGTERM, cleanup_handler)
+
+    host, port = _validate_env()
+
+    logger.info(f"Starting Dr. Manhattan MCP SSE Server on {host}:{port}")
+    logger.info(f"CORS allowed origins: {ALLOWED_ORIGINS}")
+
+    uvicorn.run(
+        app,
+        host=host,
+        port=port,
+        log_level="info",
+        access_log=True,
+    )
+
+
+if __name__ == "__main__":
+    run_sse()

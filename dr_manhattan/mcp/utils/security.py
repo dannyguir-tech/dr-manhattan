@@ -1,6 +1,6 @@
 import os
 import re
-from typing import Dict, Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 # ---------------------------------------------------------------------------
 # Sensitive header names – values for these are NEVER logged or echoed back
@@ -10,11 +10,14 @@ SENSITIVE_HEADERS: List[str] = [
     "x-api-key",
     "x-api-secret",
     "x-api-passphrase",
+    "x-polymarket-api-key",
+    "x-polymarket-api-secret",
+    "x-polymarket-passphrase",
+    "x-polymarket-private-key",
+    "x-polymarket-funder",
     "builder-api-key",
     "builder-secret",
     "builder-pass-phrase",
-    "polymarket-private-key",
-    "polymarket-funder",
 ]
 
 # ---------------------------------------------------------------------------
@@ -46,7 +49,7 @@ HEADER_CREDENTIAL_MAP = {
     "polymarket": {
         "x-polymarket-api-key": "api_key",
         # NOTE: key name is 'api_secret' (not 'secret') to match exchange_manager
-        "x-polymarket-secret": "api_secret",
+        "x-polymarket-api-secret": "api_secret",
         # NOTE: key name is 'api_passphrase' (not 'passphrase') to match exchange_manager
         "x-polymarket-passphrase": "api_passphrase",
         "x-polymarket-funder": "funder",
@@ -115,16 +118,30 @@ def has_any_credentials(credentials: Optional[Dict[str, Dict[str, Any]]]) -> boo
     return any(bool(v) for v in credentials.values())
 
 
+REQUIRED_CREDENTIALS: Dict[str, List[str]] = {
+    "polymarket": ["api_key", "api_secret", "api_passphrase"],
+}
+
+
 def validate_credentials_present(
-    credentials: Optional[Dict[str, Dict[str, Any]]],
+    credentials: Optional[Dict[str, Any]],
     exchange: str,
-) -> None:
-    """Raise ValueError if credentials for *exchange* are absent or empty."""
-    if not credentials or not credentials.get(exchange):
-        raise ValueError(
-            f"No credentials found for exchange '{exchange}'. "
-            "Pass the required headers (e.g. X-Polymarket-Api-Key) with your request."
-        )
+) -> Tuple[bool, Optional[str]]:
+    """Validate that *credentials* contain all required fields for *exchange*.
+
+    Args:
+        credentials: Flat credential dict for the exchange (not nested by exchange name).
+        exchange: Exchange identifier string.
+
+    Returns:
+        (is_valid, error_message) – error_message is None when valid.
+    """
+    creds = credentials or {}
+    required = REQUIRED_CREDENTIALS.get(exchange, [])
+    missing = [field for field in required if not creds.get(field)]
+    if missing:
+        return False, f"Missing required credentials for '{exchange}': {', '.join(missing)}."
+    return True, None
 
 
 def validate_operator_credentials(
@@ -159,7 +176,7 @@ def validate_operator_credentials(
             f"Invalid user_address '{user_address}': must be a 0x-prefixed Ethereum address."
         )
 
-    return True, ""
+    return True, None
 
 
 # ---------------------------------------------------------------------------
@@ -183,20 +200,18 @@ def validate_write_operation(
         (is_allowed, error_message) – error_message is empty when allowed.
     """
     if not is_write_operation(tool_name):
-        return True, ""
+        return True, None
 
     if exchange is None:
-        return False, (
-            f"Tool '{tool_name}' is a write operation but no exchange was specified."
-        )
+        return False, f"Tool '{tool_name}' requires an exchange parameter for write operations."
 
     if exchange.lower() not in SSE_WRITE_ENABLED_EXCHANGES:
         return False, (
-            f"Write operations are not permitted for exchange '{exchange}' via the SSE server. "
-            f"Only {SSE_WRITE_ENABLED_EXCHANGES} support write operations."
+            f"Write operations are not supported for exchange '{exchange}'. "
+            "Use a Polymarket Builder profile to perform write operations."
         )
 
-    return True, ""
+    return True, None
 
 
 # ---------------------------------------------------------------------------
@@ -207,7 +222,7 @@ _SENSITIVE_HEADER_SET = {h.lower() for h in SENSITIVE_HEADERS}
 
 # Patterns that look like secrets even when not in a known header
 _SECRET_PATTERNS = [
-    re.compile(r"(0x[a-fA-F0-9]{40,})", re.IGNORECASE),   # private keys / addresses
+    re.compile(r"(0x[a-fA-F0-9]{40,})", re.IGNORECASE),  # private keys / addresses
     re.compile(r"([A-Za-z0-9+/]{40,}={0,2})", re.IGNORECASE),  # base64 blobs
 ]
 
@@ -217,7 +232,7 @@ def sanitize_headers_for_logging(headers: Dict[str, str]) -> Dict[str, str]:
     sanitized: Dict[str, str] = {}
     for key, value in headers.items():
         if key.lower() in _SENSITIVE_HEADER_SET:
-            sanitized[key] = "[REDACTED]"
+            sanitized[key] = "[EMPTY]" if not value else "[REDACTED]"
         else:
             sanitized[key] = value
     return sanitized
