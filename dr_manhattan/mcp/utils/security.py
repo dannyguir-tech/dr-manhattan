@@ -133,39 +133,33 @@ def get_credentials_from_headers(headers: Dict[str, str]) -> Dict[str, Dict[str,
     Returns:
         Credentials dict keyed by exchange name
     """
-    # Normalize header keys to lowercase
+    credentials: Dict[str, Dict[str, Any]] = {}
     normalized_headers = {k.lower(): v for k, v in headers.items()}
 
-    credentials: Dict[str, Dict[str, Any]] = {}
-
     for exchange, header_map in HEADER_CREDENTIAL_MAP.items():
-        # Initialize to empty dict before any iteration
         exchange_creds: Dict[str, Any] = {}
 
         for header_name, cred_key in header_map.items():
             value = normalized_headers.get(header_name)
             if value:
-                # Handle type conversion for specific fields
                 if cred_key == "signature_type":
                     try:
                         exchange_creds[cred_key] = int(value)
                     except ValueError:
-                        exchange_creds[cred_key] = 0  # Default EOA
+                        exchange_creds[cred_key] = 0
                 else:
                     exchange_creds[cred_key] = value
 
-        # Fallback to environment variables for Polymarket Builder credentials
         if exchange == "polymarket":
             fallbacks = {
                 "api_key": os.environ.get("BUILDER_API_KEY"),
                 "api_secret": os.environ.get("BUILDER_SECRET"),
                 "api_passphrase": os.environ.get("BUILDER_PASS_PHRASE"),
             }
-            for cred_key, value in fallbacks.items():
-                if value and cred_key not in exchange_creds:
-                    exchange_creds[cred_key] = value
+            for fallback_key, fallback_value in fallbacks.items():
+                if fallback_value and fallback_key not in exchange_creds:
+                    exchange_creds[fallback_key] = fallback_value
 
-        # Only include exchange if it has at least one credential
         if exchange_creds:
             credentials[exchange] = exchange_creds
 
