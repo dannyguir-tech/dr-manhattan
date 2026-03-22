@@ -1,1 +1,17 @@
-IiIiTUNQIFRvb2xzIGZvciBkci1tYW5oYXR0YW4uIiIiCgpmcm9tIC4gaW1wb3J0IGFjY291bnRfdG9vbHMsIGV4Y2hhbmdlX3Rvb2xzLCBtYXJrZXRfdG9vbHMsIHN0cmF0ZWd5X3Rvb2xzLCB0cmFkaW5nX3Rvb2xzCgojIEltcG9ydCB0b29sIGRlZmluaXRpb25zIGVhZ2VybHkuIFRoZSBtY3AgcGFja2FnZSBpcyBhbHdheXMgYXZhaWxhYmxlIGluIHRoZSBTU0Ugc2VydmVyCiMgY29udGV4dC4gTGF6eSBsb2FkaW5nIGNhdXNlZCBhIHNoYXJlZC1mbGFnIGJ1ZyB3aGVyZSBUT09MX0RJU1BBVENIIHN0YXllZCBOb25lLgpmcm9tIC5kZWZpbml0aW9ucyBpbXBvcnQgVE9PTF9ESVNQQVRDSCwgZ2V0X3Rvb2xfZGVmaW5pdGlvbnMKCl9fYWxsX18gPSBbCiAgICAiYWNjb3VudF90b29scyIsCiAgICAiZXhjaGFuZ2VfdG9vbHMiLAogICAgIm1hcmtldF90b29scyIsCiAgICAic3RyYXRlZ3lfdG9vbHMiLAogICAgInRyYWRpbmdfdG9vbHMiLAogICAgImdldF90b29sX2RlZmluaXRpb25zIiwKICAgICJUT09MX0RJU1BBVENIIiwKXQo=
+"""MCP Tools for dr-manhattan."""
+
+from . import account_tools, exchange_tools, market_tools, strategy_tools, trading_tools
+
+# Import tool definitions eagerly. The mcp package is always available in the SSE server
+# context. Lazy loading caused a shared-flag bug where TOOL_DISPATCH stayed None.
+from .definitions import TOOL_DISPATCH, get_tool_definitions
+
+__all__ = [
+    "account_tools",
+    "exchange_tools",
+    "market_tools",
+    "strategy_tools",
+    "trading_tools",
+    "get_tool_definitions",
+    "TOOL_DISPATCH",
+]
