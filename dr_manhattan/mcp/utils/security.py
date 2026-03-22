@@ -72,6 +72,7 @@ def get_credentials_from_headers(headers: Optional[Dict[str, str]]) -> Dict[str,
     all_credentials: Dict[str, Dict[str, Any]] = {}
 
     for exchange, header_map in HEADER_CREDENTIAL_MAP.items():
+        # Guard: exchange_creds is always initialised as a dict – never None.
         exchange_creds: Dict[str, Any] = {}
 
         if header_map:
@@ -140,6 +141,8 @@ def validate_operator_credentials(
     Returns:
         (is_valid, error_message) – error_message is empty string when valid.
     """
+    # Guard: credentials must be a dict – never None – before any key checks
+    credentials = credentials or {}
     if not credentials:
         return False, "No credentials provided for operator mode."
 

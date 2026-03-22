@@ -224,6 +224,21 @@ def get_usdc_balance_polygon(address: str) -> Optional[float]:
     return None
 
 
+def _is_builder_or_operator(exch: Any) -> bool:
+    """Return True if exch is a PolymarketBuilder or PolymarketOperator instance.
+
+    These modes authenticate via API credentials / operator signing rather than
+    a private key, so they have their own fetch_balance() implementation and
+    do NOT use a funder wallet for RPC balance queries.
+    """
+    try:
+        from dr_manhattan.exchanges.polymarket.polymarket_builder import PolymarketBuilder
+        from dr_manhattan.exchanges.polymarket.polymarket_operator import PolymarketOperator
+        return isinstance(exch, (PolymarketBuilder, PolymarketOperator))
+    except ImportError:
+        return False
+
+
 def fetch_balance(exchange: str) -> Dict[str, Any]:
     """
     Fetch account balance.
@@ -237,6 +252,7 @@ def fetch_balance(exchange: str) -> Dict[str, Any]:
         Balance dictionary with wallet info (e.g., {"USDC": 1000.0, "wallet_address": "0x..."})
         For Polymarket: Shows both funder and proxy wallet balances, with clear indication
         that trading uses the funder wallet.
+        For PolymarketBuilder/PolymarketOperator: Returns balance from the exchange directly.
 
     Example:
         >>> balance = fetch_balance("polymarket")
@@ -246,12 +262,22 @@ def fetch_balance(exchange: str) -> Dict[str, Any]:
         exchange = validate_exchange(exchange)
         exch = exchange_manager.get_exchange(exchange)
 
-        # For Polymarket: Show both funder and proxy wallet balances
+        # For Polymarket Builder / Operator mode: delegate directly to the exchange's
+        # own fetch_balance() – these modes have no funder wallet and use the CLOB
+        # client for balance queries.
+        if exchange.lower() == "polymarket" and _is_builder_or_operator(exch):
+            balance = exch.fetch_balance()
+            return balance if isinstance(balance, dict) else {"USDC": balance}
+
+        # For Polymarket private-key mode: Show both funder and proxy wallet balances
         if exchange.lower() == "polymarket":
             from ..session.exchange_manager import MCP_CREDENTIALS
 
-            proxy_wallet = MCP_CREDENTIALS.get("polymarket", {}).get("proxy_wallet", "")
+            proxy_wallet = (MCP_CREDENTIALS.get("polymarket") or {}).get("proxy_wallet", "")
             funder_wallet = exch.funder if hasattr(exch, "funder") else ""
+
+            # Guard: funder_wallet must be a non-empty string or we cannot query it
+            funder_wallet = funder_wallet or ""
 
             # Query both wallet balances (None means query failed)
             funder_balance = get_usdc_balance_polygon(funder_wallet) if funder_wallet else None
@@ -403,11 +429,27 @@ def calculate_nav(exchange: str, market_id: Optional[str] = None) -> Dict[str, A
 
         # For Polymarket: Show both wallet balances and calculate NAV from funder wallet
         if exchange == "polymarket":
+            exch = exchange_manager.get_exchange(exchange)
+
+            # Builder / Operator mode: fetch balance directly from exchange, no funder wallet
+            if _is_builder_or_operator(exch):
+                balance_result = exch.fetch_balance()
+                usdc = balance_result.get("USDC", 0.0) if isinstance(balance_result, dict) else 0.0
+                return {
+                    "nav": usdc,
+                    "balance": usdc,
+                    "positions_value": 0.0,
+                    "trading_wallet": "builder",
+                    "note": "NAV calculated using Builder/Operator CLOB balance.",
+                }
+
             from ..session.exchange_manager import MCP_CREDENTIALS
 
-            exch = exchange_manager.get_exchange(exchange)
-            proxy_wallet = MCP_CREDENTIALS.get("polymarket", {}).get("proxy_wallet", "")
+            proxy_wallet = (MCP_CREDENTIALS.get("polymarket") or {}).get("proxy_wallet", "")
             funder_wallet = exch.funder if hasattr(exch, "funder") else ""
+
+            # Guard: funder_wallet must be a non-empty string
+            funder_wallet = funder_wallet or ""
 
             # Query both wallet balances (None means query failed)
             funder_balance = get_usdc_balance_polygon(funder_wallet) if funder_wallet else None
