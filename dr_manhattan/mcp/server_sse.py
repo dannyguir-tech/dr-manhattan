@@ -19,7 +19,6 @@ Security:
     - HTTPS required in production (handled by Railway/hosting)
 """
 
-import asyncio
 import contextvars
 import inspect
 import json
@@ -339,25 +338,6 @@ app = Starlette(routes=routes, middleware=middleware)
 # Cleanup and Main
 # =============================================================================
 
-_shutdown_requested = False
-
-
-def cleanup_handler(signum, frame):
-    """Handle shutdown signal."""
-    global _shutdown_requested
-    _shutdown_requested = True
-    sys.stderr.write("[SIGNAL] Shutdown requested, cleaning up...\n")
-    sys.stderr.flush()
-
-
-async def cleanup():
-    """Cleanup resources on shutdown."""
-    logger.info("Shutting down MCP SSE server...")
-    await asyncio.to_thread(strategy_manager.cleanup)
-    await asyncio.to_thread(exchange_manager.cleanup)
-    logger.info("Cleanup complete")
-
-
 def _validate_env() -> tuple[str, int]:
     """Validate and return environment configuration."""
     host = os.getenv("HOST", "0.0.0.0")
@@ -384,21 +364,34 @@ def run_sse():
     """Run the SSE server."""
     import uvicorn
 
-    signal.signal(signal.SIGINT, cleanup_handler)
-    signal.signal(signal.SIGTERM, cleanup_handler)
-
     host, port = _validate_env()
 
     logger.info(f"Starting Dr. Manhattan MCP SSE Server on {host}:{port}")
     logger.info(f"CORS allowed origins: {ALLOWED_ORIGINS}")
 
-    uvicorn.run(
+    config = uvicorn.Config(
         app,
         host=host,
         port=port,
         log_level="info",
-        access_log=True,
+        access_log=False,
     )
+    server = uvicorn.Server(config)
+
+    def shutdown_handler(signum, frame):
+        sys.stderr.write("[SIGNAL] Shutdown requested, cleaning up...\n")
+        sys.stderr.flush()
+        server.should_exit = True
+
+    signal.signal(signal.SIGINT, shutdown_handler)
+    signal.signal(signal.SIGTERM, shutdown_handler)
+
+    server.run()
+
+    # Synchronous cleanup after server stops
+    strategy_manager.cleanup()
+    exchange_manager.cleanup()
+    logger.info("Cleanup complete")
 
 
 if __name__ == "__main__":
