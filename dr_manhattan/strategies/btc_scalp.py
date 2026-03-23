@@ -43,7 +43,7 @@ Fee structure (Polymarket, January 2026):
 """
 
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
 from ..base.strategy import Strategy
@@ -116,8 +116,7 @@ class BTCScalpStrategy(Strategy):
         # Strip kwargs that aren't accepted by base Strategy
         base_keys = {"max_position", "order_size", "max_delta", "check_interval", "track_fills"}
         base_kwargs = {k: v for k, v in kwargs.items() if k in base_keys}
-        # Default check_interval to 5s if not specified
-        base_kwargs.setdefault("check_interval", 5.0)
+        base_kwargs.setdefault("check_interval", 0.1)
         super().__init__(exchange, market_id, **base_kwargs)
 
         if profit_target <= entry_price + 0.005:
@@ -192,7 +191,8 @@ class BTCScalpStrategy(Strategy):
             for outcome, token_id in zip(market.outcomes, token_ids)
         ]
 
-        # No Polymarket WebSocket — use REST fallback for orderbook prices
+        token_ids = [ot.token_id for ot in self.outcome_tokens]
+        self.client.setup_orderbook_websocket(self.market_id, token_ids)
         self._positions = self.client.fetch_positions_dict_for_market(self.market)
 
         # Start Binance feed and wait briefly for first price
@@ -280,7 +280,7 @@ class BTCScalpStrategy(Strategy):
 
     def _find_btc_5min_market(self) -> Optional[Market]:
         """Find the currently active BTC 5-minute Up/Down market."""
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         try:
             markets = self.exchange.search_markets(
                 keywords=["BTC", "Up or Down"],
@@ -321,6 +321,8 @@ class BTCScalpStrategy(Strategy):
             for outcome, token_id in zip(market.outcomes, token_ids)
         ]
         self._positions = self.client.fetch_positions_dict_for_market(self.market)
+        token_ids = [ot.token_id for ot in self.outcome_tokens]
+        self.client.setup_orderbook_websocket(self.market_id, token_ids)
         self._price_history.clear()
         self._price_ewma.clear()
         self._arb_positions.clear()
@@ -669,10 +671,23 @@ class BTCScalpStrategy(Strategy):
     # Helpers
     # -------------------------------------------------------------------------
 
+    def cleanup(self):
+        """Stop Binance price feed before base cleanup."""
+        self._price_feed.stop()
+        super().cleanup()
+
+    def refresh_state(self):
+        """Lightweight refresh: skip NAV and delta — not used by this strategy."""
+        self._positions = self.client.fetch_positions_dict_for_market(self.market)
+        self._open_orders = self.client.fetch_open_orders()
+
     def _seconds_until_expiry(self) -> float:
         if not self.market or not self.market.close_time:
             return float("inf")
-        delta = (self.market.close_time - datetime.now()).total_seconds()
+        close_time = self.market.close_time
+        if close_time.tzinfo is None:
+            close_time = close_time.replace(tzinfo=timezone.utc)
+        delta = (close_time - datetime.now(timezone.utc)).total_seconds()
         return max(0.0, delta)
 
     def _log_scalp_status(self, secs_remaining: float):
