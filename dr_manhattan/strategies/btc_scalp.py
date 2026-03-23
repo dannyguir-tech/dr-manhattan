@@ -27,12 +27,10 @@ Phase 4 features (professional upgrades):
 - Binance WebSocket price feed: real-time BTC/USDT from external source
 - 100ms tick loop: reacts to price events ~50x faster than the default 5s loop
 - Tiered state refresh: REST calls every 2s max; price data from WebSocket (in-memory)
-- Oracle-lag trades: in the last 15s of a window, if BTC has moved >0.1% from window
-  open, buy the winning outcome at 0.88-0.92 (no sell needed — rides to resolution)
 - BTC-direction momentum filter: uses live Binance feed instead of Polymarket price history
 
 Phase 5 features (correctness fixes):
-- Oracle-lag and arb positions excluded from trailing stop management (ride to resolution)
+- Arb positions excluded from trailing stop management (ride to resolution)
 - Win counting moved to sell fill completion, not buy fill (Kelly estimates now accurate)
 - Both-sides arb detection runs every 100ms instead of every 2s (was in slow path)
 - Kelly b-ratio uses actual historical average exit price instead of fixed profit_target
@@ -79,16 +77,8 @@ TRAILING_STOP_LATE = 0.92    # tighten to 92% near expiry
 TRAILING_LARGE_EARLY = 0.88
 TRAILING_LARGE_LATE = 0.94
 
-# --- Phase 4: sub-100ms loop and oracle-lag ---
-
 # REST state refresh interval (avoid hammering the API at 10Hz)
 STATE_REFRESH_INTERVAL = 2.0  # seconds between refresh_state() calls
-
-# Oracle-lag: trade the winning direction in the last N seconds
-ORACLE_LAG_SECS = 15           # enter oracle-lag window this many seconds before close
-ORACLE_LAG_MIN_MOVE = 0.001    # minimum BTC move fraction (0.1%) to trade
-ORACLE_LAG_BASE_PRICE = 0.88   # buy price at minimum conviction
-ORACLE_LAG_MAX_PRICE = 0.93    # buy price at maximum conviction (1%+ move)
 
 
 class BTCScalpStrategy(Strategy):
@@ -172,10 +162,9 @@ class BTCScalpStrategy(Strategy):
         # Trailing stop state (Phase 3)
         self._high_water: Dict[str, float] = {}  # outcome -> highest mid seen since fill
 
-        # Phase 4: Binance price feed + oracle-lag state
+        # Phase 4: Binance price feed
         self._price_feed: BinancePriceFeed = BinancePriceFeed()
         self._window_start_btc: Optional[float] = None   # BTC price at window open
-        self._oracle_lag_order_ids: Dict[str, str] = {}  # outcome -> order_id
         self._last_state_refresh: float = 0.0            # timestamp of last refresh_state()
 
     # -------------------------------------------------------------------------
@@ -216,7 +205,7 @@ class BTCScalpStrategy(Strategy):
         if self._window_start_btc:
             logger.info(f"BTC window open price: ${self._window_start_btc:,.2f}")
         else:
-            logger.warning("Binance feed not yet connected — oracle-lag disabled until price arrives")
+            logger.warning("Binance feed not yet connected — momentum filter disabled until price arrives")
 
         self._log_trader_profile()
         self._log_market_info()
@@ -240,9 +229,6 @@ class BTCScalpStrategy(Strategy):
             if new_market and new_market.id != self.market_id:
                 self._switch_market(new_market)
             return
-
-        # Oracle-lag: react to BTC price movement in last 15s (no REST needed)
-        self._check_oracle_lag(secs)
 
         # Both-sides arb check runs every 100ms — arb windows last only 2-3s
         if self._check_arb():
@@ -337,7 +323,6 @@ class BTCScalpStrategy(Strategy):
         self._positions = self.client.fetch_positions_dict_for_market(self.market)
         self._price_history.clear()
         self._price_ewma.clear()
-        self._oracle_lag_order_ids.clear()
         self._arb_positions.clear()
         self._fill_contracts.clear()
         self._current_sell_prices.clear()
@@ -406,66 +391,6 @@ class BTCScalpStrategy(Strategy):
             # Tier 3: large run (near resolution territory) — tighter trail
             pct = TRAILING_LARGE_EARLY + (TRAILING_LARGE_LATE - TRAILING_LARGE_EARLY) * urgency
             return max(self.profit_target, self.round_price(high_water * pct))
-
-    # -------------------------------------------------------------------------
-    # Phase 4: Oracle-lag trades
-    # -------------------------------------------------------------------------
-
-    def _check_oracle_lag(self, secs_remaining: float):
-        """
-        In the last ORACLE_LAG_SECS of a window, if Binance BTC has moved
-        significantly from the window open price, buy the likely winner at high odds.
-
-        The Polymarket oracle (Chainlink) lags Binance by a few seconds.
-        Buying at 0.88-0.93 with 55-60% accuracy yields positive expected value.
-
-        Orders ride to resolution — no sell placed, managed separately.
-        """
-        if secs_remaining > ORACLE_LAG_SECS:
-            return
-        if self._window_start_btc is None:
-            return
-
-        current_btc = self._price_feed.price
-        if current_btc is None:
-            return
-
-        pct_change = (current_btc - self._window_start_btc) / self._window_start_btc
-        if abs(pct_change) < ORACLE_LAG_MIN_MOVE:
-            return  # Not enough move for conviction
-
-        winning_outcome = "Yes" if pct_change > 0 else "No"
-
-        # Skip if already have an oracle-lag order or position on this side
-        if (
-            winning_outcome in self._oracle_lag_order_ids
-            or self._positions.get(winning_outcome, 0) > 0.5
-        ):
-            return
-
-        # Scale buy price with conviction: 0.1% move → 0.88, 1%+ move → 0.93
-        conviction = min(1.0, abs(pct_change) / 0.01)
-        buy_price = self.round_price(
-            ORACLE_LAG_BASE_PRICE + (ORACLE_LAG_MAX_PRICE - ORACLE_LAG_BASE_PRICE) * conviction
-        )
-        contracts = max(1, round(self.order_size_usd / buy_price))
-
-        ot = next((t for t in self.outcome_tokens if t.outcome == winning_outcome), None)
-        if ot is None:
-            return
-
-        try:
-            order = self.create_order(
-                winning_outcome, OrderSide.BUY, buy_price, contracts, ot.token_id
-            )
-            self._oracle_lag_order_ids[winning_outcome] = order.id
-            logger.info(
-                f"Oracle-lag: BUY {winning_outcome} @ {buy_price:.2f} x{contracts} "
-                f"(BTC {pct_change:+.3%} from ${self._window_start_btc:,.0f}, "
-                f"{secs_remaining:.0f}s left)"
-            )
-        except Exception as e:
-            logger.warning(f"Oracle-lag order failed: {e}")
 
     # -------------------------------------------------------------------------
     # Phase 2: EWMA momentum filter
@@ -593,7 +518,7 @@ class BTCScalpStrategy(Strategy):
         Detect filled buys, place and update sell orders using dynamic trailing stop.
         Also cleans up completed sell orders.
 
-        Oracle-lag and arb positions are excluded — they ride to resolution without sells.
+        Arb positions are excluded — they ride to resolution without sells.
         """
         open_order_ids = {o.id for o in self._open_orders}
 
@@ -622,8 +547,8 @@ class BTCScalpStrategy(Strategy):
             if pos < 0.5:
                 continue
 
-            # Oracle-lag and arb positions ride to resolution — no trailing stop needed
-            if ot.outcome in self._oracle_lag_order_ids or ot.outcome in self._arb_positions:
+            # Arb positions ride to resolution — no trailing stop needed
+            if ot.outcome in self._arb_positions:
                 continue
 
             bid, ask = self.get_best_bid_ask(ot.token_id)
@@ -734,7 +659,6 @@ class BTCScalpStrategy(Strategy):
         self.cancel_all_orders()
         self._buy_order_ids.clear()
         self._sell_order_ids.clear()
-        self._oracle_lag_order_ids.clear()
         self._arb_positions.clear()
         self._orders_placed_at = None
         self._high_water.clear()
@@ -770,7 +694,6 @@ class BTCScalpStrategy(Strategy):
             f"Kelly: ${kelly_usd:.2f} | "
             f"Window: {secs_remaining:.0f}s | "
             f"Buys: {len(self._buy_order_ids)} | "
-            f"Sells: {len(self._sell_order_ids)} | "
-            f"OracleLag: {len(self._oracle_lag_order_ids)}"
+            f"Sells: {len(self._sell_order_ids)}"
             f"{btc_str}"
         )
