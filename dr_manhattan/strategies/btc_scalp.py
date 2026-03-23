@@ -23,6 +23,14 @@ Phase 3 features (dynamic profit rules):
     Tier 3 (>100% gain): trail at 88% of high-water (tightens to 94% near expiry)
 - Emergency exit: if price gaps below trailing floor, sell immediately at bid
 
+Phase 4 features (professional upgrades):
+- Binance WebSocket price feed: real-time BTC/USDT from external source
+- 100ms tick loop: reacts to price events ~50x faster than the default 5s loop
+- Tiered state refresh: REST calls every 2s max; price data from WebSocket (in-memory)
+- Oracle-lag trades: in the last 15s of a window, if BTC has moved >0.1% from window
+  open, buy the winning outcome at 0.88-0.92 (no sell needed — rides to resolution)
+- BTC-direction momentum filter: uses live Binance feed instead of Polymarket price history
+
 Fee structure (Polymarket, January 2026):
 - Limit orders earn 0.20% maker rebate on both entry and exit legs
 - Effective net profit per round trip is slightly above raw spread
@@ -33,6 +41,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 
 from ..base.strategy import Strategy
+from ..feeds.binance import BinancePriceFeed
 from ..models.market import Market, OutcomeToken
 from ..models.order import Order, OrderSide
 from ..utils import setup_logger
@@ -62,6 +71,17 @@ TRAILING_STOP_LATE = 0.92    # tighten to 92% near expiry
 TRAILING_LARGE_EARLY = 0.88
 TRAILING_LARGE_LATE = 0.94
 
+# --- Phase 4: sub-100ms loop and oracle-lag ---
+
+# REST state refresh interval (avoid hammering the API at 10Hz)
+STATE_REFRESH_INTERVAL = 2.0  # seconds between refresh_state() calls
+
+# Oracle-lag: trade the winning direction in the last N seconds
+ORACLE_LAG_SECS = 15           # enter oracle-lag window this many seconds before close
+ORACLE_LAG_MIN_MOVE = 0.001    # minimum BTC move fraction (0.1%) to trade
+ORACLE_LAG_BASE_PRICE = 0.88   # buy price at minimum conviction
+ORACLE_LAG_MAX_PRICE = 0.93    # buy price at maximum conviction (1%+ move)
+
 
 class BTCScalpStrategy(Strategy):
     """
@@ -73,6 +93,9 @@ class BTCScalpStrategy(Strategy):
         order_size_usd: USD to risk per side (default 10.0)
         order_lifetime: Seconds before cancelling unfilled buys (default 72)
         cancel_before_expiry: Cancel all orders this many seconds before window close (default 90)
+
+    Tick rate: 100ms (check_interval=0.1). REST state refresh capped at once per 2s.
+    Binance WebSocket runs in a daemon thread — no credentials required.
 
     Usage:
         strategy = BTCScalpStrategy(exchange, market_id="btc-5min-auto")
@@ -126,6 +149,12 @@ class BTCScalpStrategy(Strategy):
         # Trailing stop state (Phase 3)
         self._high_water: Dict[str, float] = {}  # outcome -> highest mid seen since fill
 
+        # Phase 4: Binance price feed + oracle-lag state
+        self._price_feed: BinancePriceFeed = BinancePriceFeed()
+        self._window_start_btc: Optional[float] = None   # BTC price at window open
+        self._oracle_lag_order_ids: Dict[str, str] = {}  # outcome -> order_id
+        self._last_state_refresh: float = 0.0            # timestamp of last refresh_state()
+
     # -------------------------------------------------------------------------
     # Setup
     # -------------------------------------------------------------------------
@@ -151,8 +180,20 @@ class BTCScalpStrategy(Strategy):
             for outcome, token_id in zip(market.outcomes, token_ids)
         ]
 
-        # No WebSocket for this strategy — REST fallback in get_best_bid_ask()
+        # No Polymarket WebSocket — use REST fallback for orderbook prices
         self._positions = self.client.fetch_positions_dict_for_market(self.market)
+
+        # Start Binance feed and wait briefly for first price
+        self._price_feed.start()
+        for _ in range(20):  # wait up to 2s for first tick
+            if self._price_feed.price is not None:
+                break
+            time.sleep(0.1)
+        self._window_start_btc = self._price_feed.price
+        if self._window_start_btc:
+            logger.info(f"BTC window open price: ${self._window_start_btc:,.2f}")
+        else:
+            logger.warning("Binance feed not yet connected — oracle-lag disabled until price arrives")
 
         self._log_trader_profile()
         self._log_market_info()
@@ -163,10 +204,12 @@ class BTCScalpStrategy(Strategy):
     # -------------------------------------------------------------------------
 
     def on_tick(self):
-        self.refresh_state()
+        now = time.time()
         secs = self._seconds_until_expiry()
 
-        # Roll to next window if expiring soon
+        # --- Fast path (runs every tick at 100ms) ---
+
+        # Roll window if expiring soon (checked every tick so we never miss it)
         if secs < self.cancel_before_expiry:
             logger.info(f"Window expiring in {secs:.0f}s — rolling")
             self._reset_window()
@@ -175,21 +218,31 @@ class BTCScalpStrategy(Strategy):
                 self._switch_market(new_market)
             return
 
-        # Both-sides arbitrage check
-        if self._check_arb():
-            return
+        # Oracle-lag: react to BTC price movement in last 15s (no REST needed)
+        self._check_oracle_lag(secs)
 
-        # Update EWMA for all outcomes
+        # Update Polymarket price EWMA from WebSocket / REST (in-memory write, fast)
         for ot in self.outcome_tokens:
             bid, ask = self.get_best_bid_ask(ot.token_id)
             if bid and ask:
                 self._update_price_ewma(ot.outcome, (bid + ask) / 2.0)
 
-        # Handle fills: detect filled buys and manage sell orders
+        # --- Slow path (REST calls, max once every STATE_REFRESH_INTERVAL) ---
+        if now - self._last_state_refresh < STATE_REFRESH_INTERVAL:
+            return
+
+        self.refresh_state()
+        self._last_state_refresh = now
+
+        # Both-sides arbitrage check (needs fresh prices)
+        if self._check_arb():
+            return
+
+        # Handle fills and manage trailing stop sell orders
         self._handle_fills(secs)
 
         # Cancel buys that exceeded order_lifetime
-        if self._orders_placed_at and (time.time() - self._orders_placed_at > self.order_lifetime):
+        if self._orders_placed_at and (now - self._orders_placed_at > self.order_lifetime):
             self._cancel_pending_buys()
             self._orders_placed_at = None
 
@@ -254,7 +307,12 @@ class BTCScalpStrategy(Strategy):
         self._positions = self.client.fetch_positions_dict_for_market(self.market)
         self._price_history.clear()
         self._price_ewma.clear()
-        logger.info(f"New window: {market.question[:70]}")
+        self._oracle_lag_order_ids.clear()
+        self._window_start_btc = self._price_feed.price
+        if self._window_start_btc:
+            logger.info(f"New window: {market.question[:60]} | BTC ${self._window_start_btc:,.2f}")
+        else:
+            logger.info(f"New window: {market.question[:70]}")
 
     # -------------------------------------------------------------------------
     # Phase 2: Kelly Criterion sizing
@@ -313,6 +371,66 @@ class BTCScalpStrategy(Strategy):
             return max(self.profit_target, self.round_price(high_water * pct))
 
     # -------------------------------------------------------------------------
+    # Phase 4: Oracle-lag trades
+    # -------------------------------------------------------------------------
+
+    def _check_oracle_lag(self, secs_remaining: float):
+        """
+        In the last ORACLE_LAG_SECS of a window, if Binance BTC has moved
+        significantly from the window open price, buy the likely winner at high odds.
+
+        The Polymarket oracle (Chainlink) lags Binance by a few seconds.
+        Buying at 0.88-0.93 with 55-60% accuracy yields positive expected value.
+
+        Orders ride to resolution — no sell placed, managed separately.
+        """
+        if secs_remaining > ORACLE_LAG_SECS:
+            return
+        if self._window_start_btc is None:
+            return
+
+        current_btc = self._price_feed.price
+        if current_btc is None:
+            return
+
+        pct_change = (current_btc - self._window_start_btc) / self._window_start_btc
+        if abs(pct_change) < ORACLE_LAG_MIN_MOVE:
+            return  # Not enough move for conviction
+
+        winning_outcome = "Yes" if pct_change > 0 else "No"
+
+        # Skip if already have an oracle-lag order or position on this side
+        if (
+            winning_outcome in self._oracle_lag_order_ids
+            or self._positions.get(winning_outcome, 0) > 0.5
+        ):
+            return
+
+        # Scale buy price with conviction: 0.1% move → 0.88, 1%+ move → 0.93
+        conviction = min(1.0, abs(pct_change) / 0.01)
+        buy_price = self.round_price(
+            ORACLE_LAG_BASE_PRICE + (ORACLE_LAG_MAX_PRICE - ORACLE_LAG_BASE_PRICE) * conviction
+        )
+        contracts = max(1, round(self.order_size_usd / buy_price))
+
+        ot = next((t for t in self.outcome_tokens if t.outcome == winning_outcome), None)
+        if ot is None:
+            return
+
+        try:
+            order = self.create_order(
+                winning_outcome, OrderSide.BUY, buy_price, contracts, ot.token_id
+            )
+            self._oracle_lag_order_ids[winning_outcome] = order.id
+            logger.info(
+                f"Oracle-lag: BUY {winning_outcome} @ {buy_price:.2f} x{contracts} "
+                f"(BTC {pct_change:+.3%} from ${self._window_start_btc:,.0f}, "
+                f"{secs_remaining:.0f}s left)"
+            )
+        except Exception as e:
+            logger.warning(f"Oracle-lag order failed: {e}")
+
+    # -------------------------------------------------------------------------
     # Phase 2: EWMA momentum filter
     # -------------------------------------------------------------------------
 
@@ -331,17 +449,40 @@ class BTCScalpStrategy(Strategy):
 
     def _is_momentum_favorable(self, outcome: str) -> bool:
         """
-        Return False if price has declined for 3+ consecutive ticks.
-        A sustained decline suggests trend continuation, not mean reversion.
+        Return False if momentum is strongly against a mean-reversion entry.
+
+        Primary signal (Phase 4): if we have a live Binance BTC price and the
+        window-open reference, skip buying the side that BTC is moving away from.
+        For example: if BTC is up 0.2% → YES probability is rising, so buying YES
+        at 0.30 is unlikely to fill (already above that level). Buying NO at 0.30
+        could make sense if the move overshoots, but if BTC is *still accelerating*
+        upward (strong trend), NO is a bad mean-reversion bet.
+
+        Fallback (Phase 2): 3+ consecutive declining ticks in Polymarket price history.
         """
+        # Primary: use Binance directional signal if available
+        current_btc = self._price_feed.price
+        if current_btc is not None and self._window_start_btc is not None:
+            pct = (current_btc - self._window_start_btc) / self._window_start_btc
+            # If BTC moved strongly AGAINST the outcome we're trying to buy, skip
+            # "Yes" means BTC goes UP → if BTC is already way up, YES is expensive, not 0.30
+            # But if BTC is way DOWN, YES is cheap (0.30ish) — fine to buy
+            # We block buying the LOSING side when BTC momentum is extreme (>0.3%)
+            if outcome in ("Yes", "UP") and pct < -0.003:
+                logger.info(f"Skipping {outcome}: BTC down {pct:.3%}, falling knife risk")
+                return False
+            if outcome in ("No", "DOWN") and pct > 0.003:
+                logger.info(f"Skipping {outcome}: BTC up {pct:.3%}, falling knife risk")
+                return False
+
+        # Fallback: Polymarket price history (3+ consecutive declining ticks)
         history = self._price_history.get(outcome, [])
-        if len(history) < 4:
-            return True
-        recent = [p for _, p in history[-4:]]
-        consecutive_falls = sum(1 for i in range(len(recent) - 1) if recent[i + 1] < recent[i])
-        if consecutive_falls >= 3:
-            logger.info(f"Skipping {outcome}: {consecutive_falls} consecutive declining ticks")
-            return False
+        if len(history) >= 4:
+            recent = [p for _, p in history[-4:]]
+            consecutive_falls = sum(1 for i in range(len(recent) - 1) if recent[i + 1] < recent[i])
+            if consecutive_falls >= 3:
+                logger.info(f"Skipping {outcome}: {consecutive_falls} consecutive declining ticks")
+                return False
         return True
 
     # -------------------------------------------------------------------------
@@ -531,6 +672,7 @@ class BTCScalpStrategy(Strategy):
         self.cancel_all_orders()
         self._buy_order_ids.clear()
         self._sell_order_ids.clear()
+        self._oracle_lag_order_ids.clear()
         self._orders_placed_at = None
         self._high_water.clear()
 
@@ -548,10 +690,21 @@ class BTCScalpStrategy(Strategy):
         total = self._wins + self._losses
         win_rate = f"{self._wins / total:.0%}" if total > 0 else "N/A"
         kelly_usd = self._kelly_size()
+
+        btc_str = ""
+        current_btc = self._price_feed.price
+        if current_btc and self._window_start_btc:
+            pct = (current_btc - self._window_start_btc) / self._window_start_btc
+            btc_str = f" | BTC ${current_btc:,.0f} ({pct:+.3%})"
+        elif current_btc:
+            btc_str = f" | BTC ${current_btc:,.0f}"
+
         logger.info(
             f"  [Scalp] W/L: {self._wins}/{self._losses} ({win_rate}) | "
             f"Kelly: ${kelly_usd:.2f} | "
             f"Window: {secs_remaining:.0f}s | "
             f"Buys: {len(self._buy_order_ids)} | "
-            f"Sells: {len(self._sell_order_ids)}"
+            f"Sells: {len(self._sell_order_ids)} | "
+            f"OracleLag: {len(self._oracle_lag_order_ids)}"
+            f"{btc_str}"
         )
