@@ -8,13 +8,20 @@ places a sell at profit_target and cancels the other pending buy.
 Phase 1 features:
 - Auto-discovers the active BTC 5-min market window
 - Rolls to next window automatically before expiry
-- Adaptive exit: lowers sell target near window close to guarantee exit
 - Both-sides arbitrage detection: buy both sides when combined cost < 0.97
 
 Phase 2 features:
 - Kelly Criterion position sizing based on running win rate
 - EWMA momentum filter: skips entries during sustained price declines
 - Order lifetime enforcement: cancels unfilled buys after order_lifetime seconds
+
+Phase 3 features (dynamic profit rules):
+- High-water mark trailing stop: tracks highest mid-price seen since fill
+- Three-tier exit logic based on gain magnitude and time remaining:
+    Tier 1 (<30% gain): hold at profit_target; near expiry lower to entry+0.01
+    Tier 2 (30-100% gain): trail at 85% of high-water (tightens to 92% near expiry)
+    Tier 3 (>100% gain): trail at 88% of high-water (tightens to 94% near expiry)
+- Emergency exit: if price gaps below trailing floor, sell immediately at bid
 
 Fee structure (Polymarket, January 2026):
 - Limit orders earn 0.20% maker rebate on both entry and exit legs
@@ -38,11 +45,22 @@ MIN_WINDOW_FOR_ENTRY = 162  # cancel_before_expiry(90) + order_lifetime(72)
 # Threshold for both-sides arbitrage detection
 ARB_THRESHOLD = 0.97  # buy both when YES_ask + NO_ask < this
 
-# Adaptive exit: lower sell target when less than this many seconds remain
+# Adaptive exit: Tier 1 fallback when <120s left and gain is small
 ADAPTIVE_EXIT_SECS = 120
 
-# Minimum profit margin above entry to be worth adaptive exit
-ADAPTIVE_MIN_MARGIN = 0.01
+# --- Trailing stop thresholds ---
+# Tier 2: price gained 30-100% above entry
+MOMENTUM_THRESHOLD = 0.30
+# Tier 3: price gained >100% above entry (near resolution territory)
+LARGE_GAIN_THRESHOLD = 1.00
+
+# Tier 2 trailing percentages (interpolated from early → late window)
+TRAILING_STOP_EARLY = 0.85   # trail at 85% of high-water when >180s remain
+TRAILING_STOP_LATE = 0.92    # tighten to 92% near expiry
+
+# Tier 3 trailing percentages
+TRAILING_LARGE_EARLY = 0.88
+TRAILING_LARGE_LATE = 0.94
 
 
 class BTCScalpStrategy(Strategy):
@@ -104,6 +122,9 @@ class BTCScalpStrategy(Strategy):
         self._ewma_alpha: float = 0.3
         self._price_ewma: Dict[str, float] = {}       # outcome -> ewma value
         self._price_history: Dict[str, List[Tuple[float, float]]] = {}  # outcome -> [(t, mid)]
+
+        # Trailing stop state (Phase 3)
+        self._high_water: Dict[str, float] = {}  # outcome -> highest mid seen since fill
 
     # -------------------------------------------------------------------------
     # Setup
@@ -256,6 +277,42 @@ class BTCScalpStrategy(Strategy):
         return round(self.order_size_usd * f, 2)
 
     # -------------------------------------------------------------------------
+    # Phase 3: Dynamic sell target (trailing stop)
+    # -------------------------------------------------------------------------
+
+    def _dynamic_sell_target(self, outcome: str, current_mid: float, secs_remaining: float) -> float:
+        """
+        Compute the optimal sell price based on gain size and time remaining.
+
+        Tier 1 — gain < 30%: keep sell at profit_target; near expiry lower to entry+0.01.
+        Tier 2 — gain 30-100%: trailing stop at 85-92% of high-water (time-interpolated).
+        Tier 3 — gain > 100%: tighter trail at 88-94% of high-water.
+
+        Emergency gap-down is handled separately in _handle_fills().
+        """
+        gain = (current_mid - self.entry_price) / self.entry_price
+        high_water = self._high_water.get(outcome, current_mid)
+
+        # Urgency: 0.0 = plenty of time, 1.0 = window almost expired
+        urgency = max(0.0, min(1.0, 1.0 - secs_remaining / 300.0))
+
+        if gain < MOMENTUM_THRESHOLD:
+            # Tier 1: small gain — use flat target, drop to entry+0.01 near expiry
+            if secs_remaining < ADAPTIVE_EXIT_SECS:
+                return self.round_price(self.entry_price + 0.01)
+            return self.profit_target
+
+        elif gain < LARGE_GAIN_THRESHOLD:
+            # Tier 2: significant run — trail with moderate slack
+            pct = TRAILING_STOP_EARLY + (TRAILING_STOP_LATE - TRAILING_STOP_EARLY) * urgency
+            return max(self.profit_target, self.round_price(high_water * pct))
+
+        else:
+            # Tier 3: large run (near resolution territory) — tighter trail
+            pct = TRAILING_LARGE_EARLY + (TRAILING_LARGE_LATE - TRAILING_LARGE_EARLY) * urgency
+            return max(self.profit_target, self.round_price(high_water * pct))
+
+    # -------------------------------------------------------------------------
     # Phase 2: EWMA momentum filter
     # -------------------------------------------------------------------------
 
@@ -354,49 +411,81 @@ class BTCScalpStrategy(Strategy):
 
     def _handle_fills(self, secs_remaining: float):
         """
-        Detect filled buys, place sell orders, manage adaptive exits.
+        Detect filled buys, place and update sell orders using dynamic trailing stop.
         Also cleans up completed sell orders.
         """
         open_order_ids = {o.id for o in self._open_orders}
-        contracts = max(1, round(self._kelly_size() / self.entry_price))
 
-        # Clean up completed sell orders
+        # Clean up completed sell orders (order gone + position gone = filled)
         for outcome in list(self._sell_order_ids.keys()):
             if self._sell_order_ids[outcome] not in open_order_ids:
-                pos = self._positions.get(outcome, 0.0)
-                if pos < 0.5:
+                if self._positions.get(outcome, 0.0) < 0.5:
                     logger.info(f"Sell filled: {outcome} — position closed")
                     del self._sell_order_ids[outcome]
+                    self._high_water.pop(outcome, None)
 
         for ot in self.outcome_tokens:
             pos = self._positions.get(ot.outcome, 0.0)
             if pos < 0.5:
                 continue
 
+            bid, ask = self.get_best_bid_ask(ot.token_id)
+            current_mid = (bid + ask) / 2.0 if bid and ask else None
+
             if ot.outcome in self._sell_order_ids:
-                # Already has a sell order — apply adaptive exit near window close
-                if secs_remaining < ADAPTIVE_EXIT_SECS:
-                    _, sell_orders = self.get_orders_for_outcome(ot.outcome)
-                    active_sells = [o for o in sell_orders if o.id in open_order_ids]
-                    for sell_order in active_sells:
-                        if sell_order.price > self.entry_price + ADAPTIVE_MIN_MARGIN:
-                            adaptive_target = self.round_price(self.entry_price + ADAPTIVE_MIN_MARGIN)
-                            try:
-                                self.client.cancel_order(sell_order.id)
-                                new_order = self.create_order(
-                                    ot.outcome, OrderSide.SELL, adaptive_target, pos, ot.token_id
-                                )
-                                self._sell_order_ids[ot.outcome] = new_order.id
-                                logger.info(
-                                    f"Adaptive exit: {ot.outcome} target lowered to {adaptive_target:.4f}"
-                                )
-                            except Exception as e:
-                                logger.warning(f"Adaptive exit failed ({ot.outcome}): {e}")
+                # Position held — update trailing stop each tick
+                if current_mid is None:
+                    continue
+
+                # Raise high-water mark if price has moved up
+                self._high_water[ot.outcome] = max(
+                    self._high_water.get(ot.outcome, current_mid), current_mid
+                )
+
+                dynamic_target = self._dynamic_sell_target(ot.outcome, current_mid, secs_remaining)
+
+                _, sell_orders = self.get_orders_for_outcome(ot.outcome)
+                active_sells = [o for o in sell_orders if o.id in open_order_ids]
+
+                for sell_order in active_sells:
+                    if abs(sell_order.price - dynamic_target) <= self.tick_size:
+                        continue  # Already at the right price
+
+                    try:
+                        self.client.cancel_order(sell_order.id)
+
+                        # Emergency exit: price gapped below trailing floor — sell at bid
+                        if bid is not None and bid < dynamic_target - self.tick_size:
+                            exit_price = bid
+                            logger.info(
+                                f"Emergency exit: {ot.outcome} gapped to {bid:.4f} "
+                                f"(floor was {dynamic_target:.4f})"
+                            )
+                        else:
+                            exit_price = dynamic_target
+                            logger.info(
+                                f"Trailing: {ot.outcome} "
+                                f"{sell_order.price:.4f} → {exit_price:.4f} "
+                                f"(HWM={self._high_water[ot.outcome]:.4f})"
+                            )
+
+                        new_order = self.create_order(
+                            ot.outcome, OrderSide.SELL, exit_price, pos, ot.token_id
+                        )
+                        self._sell_order_ids[ot.outcome] = new_order.id
+                    except Exception as e:
+                        logger.warning(f"Sell update failed ({ot.outcome}): {e}")
                 continue
 
-            # New fill detected — place sell and cancel other side's buy
+            # New fill detected — seed high-water and place initial sell
+            self._high_water[ot.outcome] = current_mid if current_mid else self.entry_price
+            initial_target = self._dynamic_sell_target(
+                ot.outcome, self._high_water[ot.outcome], secs_remaining
+            )
+
             logger.info(
-                f"Fill detected: {ot.outcome} {pos:.0f}c — placing sell @ {self.profit_target:.4f}"
+                f"Fill: {ot.outcome} {pos:.0f}c — sell @ {initial_target:.4f} "
+                f"(mid={self._high_water[ot.outcome]:.4f})"
             )
             self._wins += 1
 
@@ -414,10 +503,10 @@ class BTCScalpStrategy(Strategy):
 
             try:
                 sell_order = self.create_order(
-                    ot.outcome, OrderSide.SELL, self.profit_target, pos, ot.token_id
+                    ot.outcome, OrderSide.SELL, initial_target, pos, ot.token_id
                 )
                 self._sell_order_ids[ot.outcome] = sell_order.id
-                self.log_order(OrderSide.SELL, pos, ot.outcome, self.profit_target)
+                self.log_order(OrderSide.SELL, pos, ot.outcome, initial_target)
             except Exception as e:
                 logger.warning(f"Sell order failed ({ot.outcome}): {e}")
 
@@ -443,6 +532,7 @@ class BTCScalpStrategy(Strategy):
         self._buy_order_ids.clear()
         self._sell_order_ids.clear()
         self._orders_placed_at = None
+        self._high_water.clear()
 
     # -------------------------------------------------------------------------
     # Helpers
