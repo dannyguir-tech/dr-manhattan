@@ -31,6 +31,14 @@ Phase 4 features (professional upgrades):
   open, buy the winning outcome at 0.88-0.92 (no sell needed — rides to resolution)
 - BTC-direction momentum filter: uses live Binance feed instead of Polymarket price history
 
+Phase 5 features (correctness fixes):
+- Oracle-lag and arb positions excluded from trailing stop management (ride to resolution)
+- Win counting moved to sell fill completion, not buy fill (Kelly estimates now accurate)
+- Both-sides arb detection runs every 100ms instead of every 2s (was in slow path)
+- Kelly b-ratio uses actual historical average exit price instead of fixed profit_target
+- Daily loss limit: new entries paused when session P&L falls below -max_daily_loss
+- Dollar P&L shown in log output
+
 Fee structure (Polymarket, January 2026):
 - Limit orders earn 0.20% maker rebate on both entry and exit legs
 - Effective net profit per round trip is slightly above raw spread
@@ -43,7 +51,7 @@ from typing import Dict, List, Optional, Tuple
 from ..base.strategy import Strategy
 from ..feeds.binance import BinancePriceFeed
 from ..models.market import Market, OutcomeToken
-from ..models.order import Order, OrderSide
+from ..models.order import OrderSide
 from ..utils import setup_logger
 
 logger = setup_logger(__name__)
@@ -93,6 +101,7 @@ class BTCScalpStrategy(Strategy):
         order_size_usd: USD to risk per side (default 10.0)
         order_lifetime: Seconds before cancelling unfilled buys (default 72)
         cancel_before_expiry: Cancel all orders this many seconds before window close (default 90)
+        max_daily_loss: Stop placing new entries when session P&L falls below this (default -50.0)
 
     Tick rate: 100ms (check_interval=0.1). REST state refresh capped at once per 2s.
     Binance WebSocket runs in a daemon thread — no credentials required.
@@ -111,6 +120,7 @@ class BTCScalpStrategy(Strategy):
         order_size_usd: float = 10.0,
         order_lifetime: float = 72.0,
         cancel_before_expiry: float = 90.0,
+        max_daily_loss: float = 50.0,
         **kwargs,
     ):
         # Strip kwargs that aren't accepted by base Strategy
@@ -130,6 +140,7 @@ class BTCScalpStrategy(Strategy):
         self.order_size_usd = order_size_usd
         self.order_lifetime = order_lifetime
         self.cancel_before_expiry = cancel_before_expiry
+        self.max_daily_loss = max_daily_loss
 
         # Per-window state
         self._buy_order_ids: Dict[str, str] = {}   # outcome -> order_id
@@ -140,6 +151,18 @@ class BTCScalpStrategy(Strategy):
         self._wins: int = 0
         self._losses: int = 0
         self._seed_win_rate: float = 0.60  # Conservative prior until we have data
+
+        # Accurate Kelly: track actual exit prices to compute real b-ratio
+        self._sum_sell_prices: float = 0.0
+        self._n_exits: int = 0
+
+        # P&L tracking
+        self._session_pnl: float = 0.0
+        self._fill_contracts: Dict[str, float] = {}      # outcome -> contracts at fill
+        self._current_sell_prices: Dict[str, float] = {} # outcome -> active sell price
+
+        # Arb position tracking (arb positions ride to resolution, no sell needed)
+        self._arb_positions: set = set()
 
         # EWMA momentum state (Phase 2)
         self._ewma_alpha: float = 0.3
@@ -221,6 +244,10 @@ class BTCScalpStrategy(Strategy):
         # Oracle-lag: react to BTC price movement in last 15s (no REST needed)
         self._check_oracle_lag(secs)
 
+        # Both-sides arb check runs every 100ms — arb windows last only 2-3s
+        if self._check_arb():
+            return
+
         # Update Polymarket price EWMA from WebSocket / REST (in-memory write, fast)
         for ot in self.outcome_tokens:
             bid, ask = self.get_best_bid_ask(ot.token_id)
@@ -234,10 +261,6 @@ class BTCScalpStrategy(Strategy):
         self.refresh_state()
         self._last_state_refresh = now
 
-        # Both-sides arbitrage check (needs fresh prices)
-        if self._check_arb():
-            return
-
         # Handle fills and manage trailing stop sell orders
         self._handle_fills(secs)
 
@@ -247,13 +270,20 @@ class BTCScalpStrategy(Strategy):
             self._orders_placed_at = None
 
         # Place new entry orders if no active buys/sells and enough time remains
+        # Pause if session P&L has fallen below daily loss limit
         no_open_positions = not any(self._positions.get(o.outcome, 0) > 0.5 for o in self.outcome_tokens)
         if (
             not self._buy_order_ids
             and not self._sell_order_ids
             and no_open_positions
             and secs > MIN_WINDOW_FOR_ENTRY
+            and self._session_pnl > -self.max_daily_loss
         ):
+            if self._session_pnl <= -self.max_daily_loss * 0.8:
+                logger.warning(
+                    f"Approaching daily loss limit: P&L ${self._session_pnl:.2f} / "
+                    f"limit -${self.max_daily_loss:.2f}"
+                )
             self._place_entry_orders()
 
         self._log_scalp_status(secs)
@@ -308,6 +338,9 @@ class BTCScalpStrategy(Strategy):
         self._price_history.clear()
         self._price_ewma.clear()
         self._oracle_lag_order_ids.clear()
+        self._arb_positions.clear()
+        self._fill_contracts.clear()
+        self._current_sell_prices.clear()
         self._window_start_btc = self._price_feed.price
         if self._window_start_btc:
             logger.info(f"New window: {market.question[:60]} | BTC ${self._window_start_btc:,.2f}")
@@ -323,13 +356,17 @@ class BTCScalpStrategy(Strategy):
         Kelly Criterion position size in USD.
 
         f* = p - (1-p)/b
-        where p = win rate, b = gain/loss ratio (profit_target - entry) / entry
+        where p = win rate, b = gain/loss ratio (avg_exit - entry) / entry
+
+        Uses actual historical average exit price once enough exits are observed
+        (>= 5). Falls back to profit_target until then.
 
         Returns a fraction of order_size_usd, clamped to 5%-100%.
         """
         total = self._wins + self._losses
         p = self._wins / total if total >= 10 else self._seed_win_rate
-        b = (self.profit_target - self.entry_price) / self.entry_price
+        avg_exit = self._sum_sell_prices / self._n_exits if self._n_exits >= 5 else self.profit_target
+        b = (avg_exit - self.entry_price) / self.entry_price
         f = p - (1.0 - p) / b
         f = max(0.05, min(f, 1.0))
         return round(self.order_size_usd * f, 2)
@@ -513,6 +550,7 @@ class BTCScalpStrategy(Strategy):
         for ot in self.outcome_tokens:
             try:
                 self.create_order(ot.outcome, OrderSide.BUY, asks[ot.outcome], contracts, ot.token_id)
+                self._arb_positions.add(ot.outcome)
                 logger.info(f"Arb buy: {ot.outcome} @ {asks[ot.outcome]:.4f} x{contracts}")
             except Exception as e:
                 logger.warning(f"Arb buy failed ({ot.outcome}): {e}")
@@ -554,6 +592,8 @@ class BTCScalpStrategy(Strategy):
         """
         Detect filled buys, place and update sell orders using dynamic trailing stop.
         Also cleans up completed sell orders.
+
+        Oracle-lag and arb positions are excluded — they ride to resolution without sells.
         """
         open_order_ids = {o.id for o in self._open_orders}
 
@@ -561,13 +601,29 @@ class BTCScalpStrategy(Strategy):
         for outcome in list(self._sell_order_ids.keys()):
             if self._sell_order_ids[outcome] not in open_order_ids:
                 if self._positions.get(outcome, 0.0) < 0.5:
-                    logger.info(f"Sell filled: {outcome} — position closed")
+                    sell_price = self._current_sell_prices.get(outcome, self.profit_target)
+                    contracts = self._fill_contracts.get(outcome, 0.0)
+                    pnl = (sell_price - self.entry_price) * contracts
+                    self._session_pnl += pnl
+                    self._sum_sell_prices += sell_price
+                    self._n_exits += 1
+                    self._wins += 1
+                    logger.info(
+                        f"Sell filled: {outcome} @ {sell_price:.4f} "
+                        f"(P&L: ${pnl:+.2f}, session: ${self._session_pnl:+.2f})"
+                    )
                     del self._sell_order_ids[outcome]
                     self._high_water.pop(outcome, None)
+                    self._fill_contracts.pop(outcome, None)
+                    self._current_sell_prices.pop(outcome, None)
 
         for ot in self.outcome_tokens:
             pos = self._positions.get(ot.outcome, 0.0)
             if pos < 0.5:
+                continue
+
+            # Oracle-lag and arb positions ride to resolution — no trailing stop needed
+            if ot.outcome in self._oracle_lag_order_ids or ot.outcome in self._arb_positions:
                 continue
 
             bid, ask = self.get_best_bid_ask(ot.token_id)
@@ -614,12 +670,14 @@ class BTCScalpStrategy(Strategy):
                             ot.outcome, OrderSide.SELL, exit_price, pos, ot.token_id
                         )
                         self._sell_order_ids[ot.outcome] = new_order.id
+                        self._current_sell_prices[ot.outcome] = exit_price
                     except Exception as e:
                         logger.warning(f"Sell update failed ({ot.outcome}): {e}")
                 continue
 
-            # New fill detected — seed high-water and place initial sell
+            # New fill detected — seed high-water, record contracts, place initial sell
             self._high_water[ot.outcome] = current_mid if current_mid else self.entry_price
+            self._fill_contracts[ot.outcome] = pos
             initial_target = self._dynamic_sell_target(
                 ot.outcome, self._high_water[ot.outcome], secs_remaining
             )
@@ -628,7 +686,6 @@ class BTCScalpStrategy(Strategy):
                 f"Fill: {ot.outcome} {pos:.0f}c — sell @ {initial_target:.4f} "
                 f"(mid={self._high_water[ot.outcome]:.4f})"
             )
-            self._wins += 1
 
             # Cancel the other side's pending buy
             for other in self.outcome_tokens:
@@ -647,6 +704,7 @@ class BTCScalpStrategy(Strategy):
                     ot.outcome, OrderSide.SELL, initial_target, pos, ot.token_id
                 )
                 self._sell_order_ids[ot.outcome] = sell_order.id
+                self._current_sell_prices[ot.outcome] = initial_target
                 self.log_order(OrderSide.SELL, pos, ot.outcome, initial_target)
             except Exception as e:
                 logger.warning(f"Sell order failed ({ot.outcome}): {e}")
@@ -667,14 +725,21 @@ class BTCScalpStrategy(Strategy):
 
     def _reset_window(self):
         """Cancel all orders and reset per-window state. Track losses if sells were open."""
-        if self._sell_order_ids:
-            self._losses += len(self._sell_order_ids)
+        for outcome in list(self._sell_order_ids.keys()):
+            contracts = self._fill_contracts.get(outcome, 0.0)
+            if contracts > 0:
+                loss = self.entry_price * contracts
+                self._session_pnl -= loss
+            self._losses += 1
         self.cancel_all_orders()
         self._buy_order_ids.clear()
         self._sell_order_ids.clear()
         self._oracle_lag_order_ids.clear()
+        self._arb_positions.clear()
         self._orders_placed_at = None
         self._high_water.clear()
+        self._fill_contracts.clear()
+        self._current_sell_prices.clear()
 
     # -------------------------------------------------------------------------
     # Helpers
@@ -701,6 +766,7 @@ class BTCScalpStrategy(Strategy):
 
         logger.info(
             f"  [Scalp] W/L: {self._wins}/{self._losses} ({win_rate}) | "
+            f"P&L: ${self._session_pnl:+.2f} | "
             f"Kelly: ${kelly_usd:.2f} | "
             f"Window: {secs_remaining:.0f}s | "
             f"Buys: {len(self._buy_order_ids)} | "
