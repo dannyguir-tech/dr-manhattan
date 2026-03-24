@@ -135,6 +135,7 @@ class BTCScalpStrategy(Strategy):
         self._buy_order_ids: Dict[str, str] = {}   # outcome -> order_id
         self._sell_order_ids: Dict[str, str] = {}  # outcome -> order_id
         self._orders_placed_at: Optional[float] = None
+        self._window_reset: bool = False  # True after _reset_window, cleared on new market
 
         # Kelly Criterion state (Phase 2)
         self._wins: int = 0
@@ -223,8 +224,10 @@ class BTCScalpStrategy(Strategy):
 
         # Roll window if expiring soon (checked every tick so we never miss it)
         if secs < self.cancel_before_expiry:
-            logger.info(f"Window expiring in {secs:.0f}s — rolling")
-            self._reset_window()
+            if not self._window_reset:
+                logger.info(f"Window expiring in {secs:.0f}s — rolling")
+                self._reset_window()
+                self._window_reset = True
             new_market = self._find_btc_5min_market()
             if new_market and new_market.id != self.market_id:
                 self._switch_market(new_market)
@@ -328,6 +331,7 @@ class BTCScalpStrategy(Strategy):
         self._arb_positions.clear()
         self._fill_contracts.clear()
         self._current_sell_prices.clear()
+        self._window_reset = False
         self._window_start_btc = self._price_feed.price
         if self._window_start_btc:
             logger.info(f"New window: {market.question[:60]} | BTC ${self._window_start_btc:,.2f}")
@@ -602,29 +606,30 @@ class BTCScalpStrategy(Strategy):
                         logger.warning(f"Sell update failed ({ot.outcome}): {e}")
                 continue
 
-            # New fill detected — seed high-water, record contracts, place initial sell
-            self._high_water[ot.outcome] = current_mid if current_mid else self.entry_price
-            self._fill_contracts[ot.outcome] = pos
+            # Fill detected — on first detection seed state and cancel the other side.
+            # On retry (sell placement failed), skip first-detection side-effects.
+            is_first_detection = ot.outcome not in self._fill_contracts
+            if is_first_detection:
+                self._high_water[ot.outcome] = current_mid if current_mid else self.entry_price
+                self._fill_contracts[ot.outcome] = pos
+                logger.info(
+                    f"Fill: {ot.outcome} {pos:.0f}c — sell @ target "
+                    f"(mid={self._high_water[ot.outcome]:.4f})"
+                )
+                # Cancel the other side's pending buy
+                for other in self.outcome_tokens:
+                    if other.outcome != ot.outcome and other.outcome in self._buy_order_ids:
+                        try:
+                            self.client.cancel_order(self._buy_order_ids[other.outcome])
+                            del self._buy_order_ids[other.outcome]
+                            logger.info(f"Cancelled opposite buy: {other.outcome}")
+                        except Exception as e:
+                            logger.warning(f"Cancel opposite buy failed ({other.outcome}): {e}")
+                self._buy_order_ids.pop(ot.outcome, None)
+
             initial_target = self._dynamic_sell_target(
                 ot.outcome, self._high_water[ot.outcome], secs_remaining
             )
-
-            logger.info(
-                f"Fill: {ot.outcome} {pos:.0f}c — sell @ {initial_target:.4f} "
-                f"(mid={self._high_water[ot.outcome]:.4f})"
-            )
-
-            # Cancel the other side's pending buy
-            for other in self.outcome_tokens:
-                if other.outcome != ot.outcome and other.outcome in self._buy_order_ids:
-                    try:
-                        self.client.cancel_order(self._buy_order_ids[other.outcome])
-                        del self._buy_order_ids[other.outcome]
-                        logger.info(f"Cancelled opposite buy: {other.outcome}")
-                    except Exception as e:
-                        logger.warning(f"Cancel opposite buy failed ({other.outcome}): {e}")
-
-            self._buy_order_ids.pop(ot.outcome, None)
 
             try:
                 sell_order = self.create_order(
@@ -679,7 +684,7 @@ class BTCScalpStrategy(Strategy):
     def refresh_state(self):
         """Lightweight refresh: skip NAV and delta — not used by this strategy."""
         self._positions = self.client.fetch_positions_dict_for_market(self.market)
-        self._open_orders = self.client.fetch_open_orders()
+        self._open_orders = self.client.fetch_open_orders(market_id=self.market_id)
 
     def _seconds_until_expiry(self) -> float:
         if not self.market or not self.market.close_time:
