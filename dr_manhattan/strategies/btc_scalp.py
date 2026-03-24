@@ -26,9 +26,14 @@ Fee structure (Polymarket, January 2026):
 - Effective net profit per round trip is spread + rebates
 """
 
+import math
+import os
+import sqlite3
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Optional
+
+import requests
 
 from ..base.strategy import Strategy
 from ..feeds.binance import BinancePriceFeed
@@ -141,6 +146,15 @@ class BTCScalpStrategy(Strategy):
         self._circuit_open: bool = False
         self._circuit_open_until: float = 0.0
 
+        # SQLite persistence
+        db_dir = "/data"
+        os.makedirs(db_dir, exist_ok=True)
+        self._db_path = os.path.join(db_dir, "bot.db")
+        self._init_db()
+
+        # Cached cash balance for per-order pre-check
+        self._cached_cash: float = 0.0
+
     # -------------------------------------------------------------------------
     # Setup
     # -------------------------------------------------------------------------
@@ -183,8 +197,10 @@ class BTCScalpStrategy(Strategy):
             logger.warning("Binance feed not yet connected — BTC context unavailable")
 
         self._reconcile_on_startup()
+        self._load_session_state()
         self._log_trader_profile()
         self._log_market_info()
+        self._notify(f"Bot started. Session P&L loaded: ${self._session_pnl:+.2f} | W/L: {self._wins}/{self._losses}")
         return True
 
     # -------------------------------------------------------------------------
@@ -320,6 +336,9 @@ class BTCScalpStrategy(Strategy):
             logger.warning(
                 f"Daily loss limit hit: P&L ${self._session_pnl:.2f} / limit -${self.max_daily_loss:.2f}"
             )
+            self._notify(
+                f"DAILY LOSS LIMIT HIT: P&L ${self._session_pnl:+.2f} / limit -${self.max_daily_loss:.2f}"
+            )
             return
         if self._is_circuit_open():
             return
@@ -337,6 +356,11 @@ class BTCScalpStrategy(Strategy):
         else:
             effective_half_spread = self.half_spread
 
+        # Gamma-aware max inventory: reduce position ceiling as expiry nears
+        # At 300s+: full max_inventory. At 60s: ~37% of max_inventory.
+        time_decay = min(secs_remaining / 300.0, 1.0)
+        effective_max_inventory = self.max_inventory * (0.3 + 0.7 * time_decay)
+
         for ot in self.outcome_tokens:
             if ot.outcome in self._arb_positions:
                 continue
@@ -352,7 +376,7 @@ class BTCScalpStrategy(Strategy):
             position = self._positions.get(ot.outcome, 0.0)
 
             # Inventory skew: reduce aggression on the heavy side
-            skew = (position / self.max_inventory) * effective_half_spread
+            skew = (position / effective_max_inventory) * effective_half_spread
             our_bid = self.round_price(mid - effective_half_spread - skew)
             our_ask = self.round_price(mid + effective_half_spread - skew)
 
@@ -362,8 +386,19 @@ class BTCScalpStrategy(Strategy):
 
             buy_orders, sell_orders = self.get_orders_for_outcome(ot.outcome)
 
-            # BUY side — only post if below max inventory and BTC trend allows
-            if position < self.max_inventory and not self._btc_trend_blocks_bid(ot.outcome):
+            # BUY side — only post if below max inventory, BTC trend allows,
+            # OFI doesn't show strong sell pressure, and cash covers the order
+            ofi = self._order_flow_imbalance(ot.token_id)
+            order_cost = our_bid * self.order_size
+            cash_ok = self._cached_cash <= 0 or self._cached_cash >= order_cost
+            if not cash_ok:
+                logger.debug(f"Bid skipped ({ot.outcome}): insufficient cash ${self._cached_cash:.2f} < ${order_cost:.2f}")
+            if (
+                position < effective_max_inventory
+                and not self._btc_trend_blocks_bid(ot.outcome)
+                and ofi >= 0.40
+                and cash_ok
+            ):
                 if not self.has_order_at_price(buy_orders, our_bid):
                     self.cancel_stale_orders(buy_orders, our_bid)
                     try:
@@ -504,6 +539,18 @@ class BTCScalpStrategy(Strategy):
                         f"Sell fill: {ot.outcome} -{sold:.0f}c @ {fill_price:.4f} "
                         f"(entry {entry:.4f}, P&L: ${pnl:+.2f}, session: ${self._session_pnl:+.2f})"
                     )
+                    self._notify(
+                        f"SELL FILL {ot.outcome} -{sold:.0f}c @ {fill_price:.4f} | "
+                        f"P&L: ${pnl:+.2f} | Session: ${self._session_pnl:+.2f}"
+                    )
+                    self._save_session_state()
+
+                    # Warn at 80% of daily loss limit
+                    if self._session_pnl < -self.max_daily_loss * 0.8:
+                        self._notify(
+                            f"WARNING: Session P&L ${self._session_pnl:+.2f} approaching daily limit "
+                            f"-${self.max_daily_loss:.2f}"
+                        )
 
         self._prev_positions = dict(self._positions)
 
@@ -575,9 +622,13 @@ class BTCScalpStrategy(Strategy):
         super().cleanup()
 
     def refresh_state(self):
-        """Refresh positions and orders (skip NAV/delta, not used here)."""
+        """Refresh positions, orders, and cash balance."""
         self._positions = self.client.fetch_positions_dict_for_market(self.market)
         self._open_orders = self.client.fetch_open_orders(market_id=self.market_id)
+        try:
+            self._cached_cash = self.client.get_usdc_balance()
+        except Exception:
+            pass
 
     def _seconds_until_expiry(self) -> float:
         if not self.market or not self.market.close_time:
@@ -617,6 +668,104 @@ class BTCScalpStrategy(Strategy):
         )
 
     # -------------------------------------------------------------------------
+    # Telegram notifications
+    # -------------------------------------------------------------------------
+
+    def _notify(self, msg: str) -> None:
+        token = os.environ.get("TELEGRAM_TOKEN")
+        chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+        if not token or not chat_id:
+            return
+        try:
+            requests.post(
+                f"https://api.telegram.org/bot{token}/sendMessage",
+                json={"chat_id": chat_id, "text": msg},
+                timeout=3,
+            )
+        except Exception as e:
+            logger.debug(f"Telegram notify failed: {e}")
+
+    # -------------------------------------------------------------------------
+    # SQLite session persistence
+    # -------------------------------------------------------------------------
+
+    def _init_db(self) -> None:
+        with sqlite3.connect(self._db_path) as conn:
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS session (
+                    date TEXT PRIMARY KEY,
+                    session_pnl REAL,
+                    wins INTEGER,
+                    losses INTEGER,
+                    updated_at TEXT
+                )
+                """
+            )
+
+    def _load_session_state(self) -> None:
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        try:
+            with sqlite3.connect(self._db_path) as conn:
+                row = conn.execute(
+                    "SELECT session_pnl, wins, losses FROM session WHERE date = ?", (today,)
+                ).fetchone()
+            if row:
+                self._session_pnl, self._wins, self._losses = row[0], row[1], row[2]
+                logger.info(
+                    f"Session restored: P&L ${self._session_pnl:+.2f} | W/L {self._wins}/{self._losses}"
+                )
+            else:
+                logger.info("No session data for today — starting fresh")
+        except Exception as e:
+            logger.warning(f"Failed to load session state: {e}")
+
+    def _save_session_state(self) -> None:
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        now_str = datetime.now(timezone.utc).isoformat()
+        try:
+            with sqlite3.connect(self._db_path) as conn:
+                conn.execute(
+                    """
+                    INSERT INTO session (date, session_pnl, wins, losses, updated_at)
+                    VALUES (?, ?, ?, ?, ?)
+                    ON CONFLICT(date) DO UPDATE SET
+                        session_pnl = excluded.session_pnl,
+                        wins = excluded.wins,
+                        losses = excluded.losses,
+                        updated_at = excluded.updated_at
+                    """,
+                    (today, self._session_pnl, self._wins, self._losses, now_str),
+                )
+        except Exception as e:
+            logger.warning(f"Failed to save session state: {e}")
+
+    # -------------------------------------------------------------------------
+    # Order Flow Imbalance
+    # -------------------------------------------------------------------------
+
+    def _order_flow_imbalance(self, token_id: str) -> float:
+        """
+        Return bid-side depth fraction: bid_depth / (bid_depth + ask_depth).
+
+        OFI > 0.60 signals buy pressure (price likely rising).
+        OFI < 0.40 signals sell pressure (price likely falling).
+        Returns 0.5 (neutral) when orderbook data is unavailable.
+        """
+        try:
+            ob = self.client.get_orderbook(token_id)
+            if not ob:
+                return 0.5
+            bid_depth = sum(float(level.get("size", 0)) for level in ob.get("bids", []))
+            ask_depth = sum(float(level.get("size", 0)) for level in ob.get("asks", []))
+            total = bid_depth + ask_depth
+            if total <= 0:
+                return 0.5
+            return bid_depth / total
+        except Exception:
+            return 0.5
+
+    # -------------------------------------------------------------------------
     # Circuit breaker
     # -------------------------------------------------------------------------
 
@@ -646,7 +795,9 @@ class BTCScalpStrategy(Strategy):
             self._circuit_open = True
             self._circuit_open_until = now + CIRCUIT_BREAKER_COOLDOWN
             elapsed = now - self._first_rejection_time
-            logger.error(
+            msg = (
                 f"Circuit breaker OPEN: {self._consecutive_rejections} failures in {elapsed:.0f}s "
                 f"(last: {context}). Pausing for {CIRCUIT_BREAKER_COOLDOWN:.0f}s."
             )
+            logger.error(msg)
+            self._notify(f"CIRCUIT BREAKER OPEN — {msg}")

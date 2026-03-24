@@ -14,6 +14,8 @@ Optional:
     ORDER_SIZE              — Contracts per order per side (default: 5)
     MAX_INVENTORY           — Max contracts per outcome before buying stops (default: 50)
     MAX_DAILY_LOSS          — Stop quoting when session P&L < -MAX (default: 50.0)
+    TELEGRAM_TOKEN          — Telegram bot token for trade alerts (optional)
+    TELEGRAM_CHAT_ID        — Telegram chat/user ID to send alerts to (optional)
 """
 
 import os
