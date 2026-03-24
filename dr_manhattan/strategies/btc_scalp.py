@@ -84,6 +84,11 @@ TIER1_BOOST = 1.5
 # REST state refresh interval (avoid hammering the API at 10Hz)
 STATE_REFRESH_INTERVAL = 2.0  # seconds between refresh_state() calls
 
+# Circuit breaker: pause entries after repeated order rejections
+CIRCUIT_BREAKER_THRESHOLD = 5    # consecutive failures before tripping
+CIRCUIT_BREAKER_WINDOW = 60.0    # seconds to count failures within
+CIRCUIT_BREAKER_COOLDOWN = 300.0 # seconds circuit stays open before auto-reset
+
 
 class BTCScalpStrategy(Strategy):
     """
@@ -170,6 +175,13 @@ class BTCScalpStrategy(Strategy):
         self._price_feed: BinancePriceFeed = BinancePriceFeed()
         self._window_start_btc: Optional[float] = None   # BTC price at window open
         self._last_state_refresh: float = 0.0            # timestamp of last refresh_state()
+        self._feed_stale_logged: bool = False             # suppress repeated stale warnings
+
+        # Circuit breaker: halt entries after repeated order rejections
+        self._consecutive_rejections: int = 0
+        self._first_rejection_time: float = 0.0
+        self._circuit_open: bool = False
+        self._circuit_open_until: float = 0.0
 
     # -------------------------------------------------------------------------
     # Setup
@@ -212,6 +224,7 @@ class BTCScalpStrategy(Strategy):
         else:
             logger.warning("Binance feed not yet connected — momentum filter disabled until price arrives")
 
+        self._reconcile_on_startup()
         self._log_trader_profile()
         self._log_market_info()
         return True
@@ -263,7 +276,7 @@ class BTCScalpStrategy(Strategy):
             self._orders_placed_at = None
 
         # Place new entry orders if no active buys/sells and enough time remains
-        # Pause if session P&L has fallen below daily loss limit
+        # Pause if session P&L has fallen below daily loss limit or circuit is open
         no_open_positions = not any(self._positions.get(o.outcome, 0) > 0.5 for o in self.outcome_tokens)
         if (
             not self._buy_order_ids
@@ -271,6 +284,7 @@ class BTCScalpStrategy(Strategy):
             and no_open_positions
             and secs > MIN_WINDOW_FOR_ENTRY
             and self._session_pnl > -self.max_daily_loss
+            and not self._is_circuit_open()
         ):
             if self._session_pnl <= -self.max_daily_loss * 0.8:
                 logger.warning(
@@ -446,8 +460,17 @@ class BTCScalpStrategy(Strategy):
 
         Fallback (Phase 2): 3+ consecutive declining ticks in Polymarket price history.
         """
-        # Primary: use Binance directional signal if available
-        current_btc = self._price_feed.price
+        # Primary: use Binance directional signal if available (fresh WS or REST fallback)
+        if self._price_feed.is_fresh:
+            current_btc = self._price_feed.price
+            if self._feed_stale_logged:
+                logger.info("Binance feed recovered — resuming WS momentum signal")
+                self._feed_stale_logged = False
+        else:
+            current_btc = self._price_feed.fetch_price_rest()
+            if not self._feed_stale_logged:
+                logger.warning("Binance WS stale — falling back to REST for momentum signal")
+                self._feed_stale_logged = True
         if current_btc is not None and self._window_start_btc is not None:
             pct = (current_btc - self._window_start_btc) / self._window_start_btc
             # If BTC moved strongly AGAINST the outcome we're trying to buy, skip
@@ -530,8 +553,10 @@ class BTCScalpStrategy(Strategy):
                 order = self.create_order(ot.outcome, OrderSide.BUY, self.entry_price, contracts, ot.token_id)
                 self._buy_order_ids[ot.outcome] = order.id
                 self.log_order(OrderSide.BUY, contracts, ot.outcome, self.entry_price)
+                self._record_order_success()
             except Exception as e:
                 logger.warning(f"Buy order failed ({ot.outcome}): {e}")
+                self._record_order_failure(f"buy {ot.outcome}")
 
     # -------------------------------------------------------------------------
     # Fill management
@@ -656,8 +681,10 @@ class BTCScalpStrategy(Strategy):
                 self._sell_order_ids[ot.outcome] = sell_order.id
                 self._current_sell_prices[ot.outcome] = initial_target
                 self.log_order(OrderSide.SELL, pos, ot.outcome, initial_target)
+                self._record_order_success()
             except Exception as e:
                 logger.warning(f"Sell order failed ({ot.outcome}): {e}")
+                self._record_order_failure(f"sell {ot.outcome}")
 
     # -------------------------------------------------------------------------
     # Window management
@@ -689,6 +716,81 @@ class BTCScalpStrategy(Strategy):
         self._high_water.clear()
         self._fill_contracts.clear()
         self._current_sell_prices.clear()
+
+    # -------------------------------------------------------------------------
+    # Startup reconciliation
+    # -------------------------------------------------------------------------
+
+    def _reconcile_on_startup(self) -> None:
+        """
+        Reconstruct in-memory order/position state from the live exchange on startup.
+
+        Prevents double-entry and orphaned positions after a crash or restart mid-window.
+        """
+        try:
+            open_orders = self.client.fetch_open_orders(self.market_id)
+            for order in open_orders:
+                if order.side == OrderSide.BUY:
+                    self._buy_order_ids[order.outcome] = order.id
+                    logger.info(f"Reconciled open buy: {order.outcome} @ {order.price:.4f} (id={order.id})")
+                elif order.side == OrderSide.SELL:
+                    self._sell_order_ids[order.outcome] = order.id
+                    self._current_sell_prices[order.outcome] = order.price
+                    logger.info(f"Reconciled open sell: {order.outcome} @ {order.price:.4f} (id={order.id})")
+
+            # Positions without a tracked sell = orphaned fill from a previous run
+            for outcome, size in self._positions.items():
+                if size > 0.5 and outcome not in self._sell_order_ids and outcome not in self._arb_positions:
+                    self._fill_contracts[outcome] = size
+                    logger.info(
+                        f"Reconciled orphaned position: {outcome} {size:.0f}c — sell will be placed on next tick"
+                    )
+
+            if not open_orders and not any(s > 0.5 for s in self._positions.values()):
+                logger.info("Reconciliation: no open orders or positions — clean slate")
+        except Exception as e:
+            logger.warning(f"Startup reconciliation failed (will proceed without it): {e}")
+
+    # -------------------------------------------------------------------------
+    # Circuit breaker
+    # -------------------------------------------------------------------------
+
+    def _is_circuit_open(self) -> bool:
+        """Return True if the circuit breaker is tripped (entries should be paused)."""
+        if not self._circuit_open:
+            return False
+        if time.time() >= self._circuit_open_until:
+            self._circuit_open = False
+            self._consecutive_rejections = 0
+            logger.info("Circuit breaker CLOSED — resuming order placement")
+            return False
+        remaining = self._circuit_open_until - time.time()
+        logger.debug(f"Circuit breaker open — {remaining:.0f}s until reset")
+        return True
+
+    def _record_order_success(self) -> None:
+        """Reset the circuit breaker failure counter after a successful order."""
+        if self._consecutive_rejections > 0:
+            self._consecutive_rejections = 0
+
+    def _record_order_failure(self, context: str) -> None:
+        """Track a failed order placement; trip the circuit breaker if threshold is exceeded."""
+        now = time.time()
+        if self._first_rejection_time == 0.0 or now - self._first_rejection_time > CIRCUIT_BREAKER_WINDOW:
+            # Start a fresh counting window
+            self._first_rejection_time = now
+            self._consecutive_rejections = 1
+        else:
+            self._consecutive_rejections += 1
+
+        if self._consecutive_rejections >= CIRCUIT_BREAKER_THRESHOLD and not self._circuit_open:
+            self._circuit_open = True
+            self._circuit_open_until = now + CIRCUIT_BREAKER_COOLDOWN
+            elapsed = now - self._first_rejection_time
+            logger.error(
+                f"Circuit breaker OPEN: {self._consecutive_rejections} failures in {elapsed:.0f}s "
+                f"(last: {context}). Pausing entries for {CIRCUIT_BREAKER_COOLDOWN:.0f}s."
+            )
 
     # -------------------------------------------------------------------------
     # Helpers

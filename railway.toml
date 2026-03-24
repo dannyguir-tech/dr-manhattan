@@ -1,2 +1,2 @@
 [deploy]
-startCommand = "python -m dr_manhattan.mcp.server_sse"
+startCommand = "uv run python -m dr_manhattan.strategies.btc_scalp"
