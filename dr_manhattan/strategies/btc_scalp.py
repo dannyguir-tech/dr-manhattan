@@ -64,8 +64,8 @@ ARB_THRESHOLD = 0.97  # buy both when YES_ask + NO_ask < this
 ADAPTIVE_EXIT_SECS = 120
 
 # --- Trailing stop thresholds ---
-# Tier 2: price gained 30-100% above entry
-MOMENTUM_THRESHOLD = 0.30
+# Tier 2: price gained 15-100% above entry
+MOMENTUM_THRESHOLD = 0.15
 # Tier 3: price gained >100% above entry (near resolution territory)
 LARGE_GAIN_THRESHOLD = 1.00
 
@@ -86,8 +86,8 @@ class BTCScalpStrategy(Strategy):
     Passive limit-order scalp on the Polymarket BTC 5-minute Up/Down market.
 
     Strategy parameters:
-        entry_price: Limit buy price for both YES and NO (default 0.30)
-        profit_target: Limit sell price after fill (default 0.33)
+        entry_price: Limit buy price for both YES and NO (default 0.32)
+        profit_target: Limit sell price after fill (default 0.35)
         order_size_usd: USD to risk per side (default 10.0)
         order_lifetime: Seconds before cancelling unfilled buys (default 72)
         cancel_before_expiry: Cancel all orders this many seconds before window close (default 90)
@@ -105,8 +105,8 @@ class BTCScalpStrategy(Strategy):
         self,
         exchange,
         market_id: str = "btc-5min-auto",
-        entry_price: float = 0.30,
-        profit_target: float = 0.33,
+        entry_price: float = 0.32,
+        profit_target: float = 0.35,
         order_size_usd: float = 10.0,
         order_lifetime: float = 72.0,
         cancel_before_expiry: float = 90.0,
@@ -347,19 +347,27 @@ class BTCScalpStrategy(Strategy):
         Kelly Criterion position size in USD.
 
         f* = p - (1-p)/b
-        where p = win rate, b = gain/loss ratio (avg_exit - entry) / entry
+        where p = win rate, b = gain/loss ratio.
+
+        b = win_per_contract / loss_per_contract.
+        Win: avg_exit - entry. Loss: bounded by emergency exit assumptions — worst
+        realistic loss from a gap-down emergency exit is ~5% of entry price, not
+        the full entry price (the adaptive exit at entry+0.01 and order_lifetime
+        cancellation mean most losing trades exit near breakeven).
 
         Uses actual historical average exit price once enough exits are observed
         (>= 5). Falls back to profit_target until then.
 
-        Returns a fraction of order_size_usd, clamped to 5%-100%.
+        Returns a fraction of order_size_usd, clamped to 10%-100%.
         """
         total = self._wins + self._losses
         p = self._wins / total if total >= 10 else self._seed_win_rate
         avg_exit = self._sum_sell_prices / self._n_exits if self._n_exits >= 5 else self.profit_target
-        b = (avg_exit - self.entry_price) / self.entry_price
+        win_amount = avg_exit - self.entry_price
+        loss_amount = self.entry_price * 0.05  # ~5% emergency exit assumption
+        b = win_amount / loss_amount
         f = p - (1.0 - p) / b
-        f = max(0.05, min(f, 1.0))
+        f = max(0.10, min(f, 1.0))
         return round(self.order_size_usd * f, 2)
 
     # -------------------------------------------------------------------------
@@ -370,8 +378,8 @@ class BTCScalpStrategy(Strategy):
         """
         Compute the optimal sell price based on gain size and time remaining.
 
-        Tier 1 — gain < 30%: keep sell at profit_target; near expiry lower to entry+0.01.
-        Tier 2 — gain 30-100%: trailing stop at 85-92% of high-water (time-interpolated).
+        Tier 1 — gain < 15%: keep sell at profit_target; near expiry lower to entry+0.01.
+        Tier 2 — gain 15-100%: trailing stop at 85-92% of high-water (time-interpolated).
         Tier 3 — gain > 100%: tighter trail at 88-94% of high-water.
 
         Emergency gap-down is handled separately in _handle_fills().
