@@ -18,7 +18,7 @@ Phase 2 features:
 Phase 3 features (dynamic profit rules):
 - High-water mark trailing stop: tracks highest mid-price seen since fill
 - Three-tier exit logic based on gain magnitude and time remaining:
-    Tier 1 (<30% gain): hold at profit_target; near expiry lower to entry+0.01
+    Tier 1 (<15% gain): >180s: boosted target; 120-180s: profit_target; <120s: entry+0.01
     Tier 2 (30-100% gain): trail at 85% of high-water (tightens to 92% near expiry)
     Tier 3 (>100% gain): trail at 88% of high-water (tightens to 94% near expiry)
 - Emergency exit: if price gaps below trailing floor, sell immediately at bid
@@ -76,6 +76,10 @@ TRAILING_STOP_LATE = 0.92    # tighten to 92% near expiry
 # Tier 3 trailing percentages
 TRAILING_LARGE_EARLY = 0.88
 TRAILING_LARGE_LATE = 0.94
+
+# Tier 1 early-window boost: when >180s remain, target = entry + spread * TIER1_BOOST
+# e.g. entry=0.32, profit_target=0.35, spread=0.03 → boosted target = 0.32 + 0.045 = 0.365
+TIER1_BOOST = 1.5
 
 # REST state refresh interval (avoid hammering the API at 10Hz)
 STATE_REFRESH_INTERVAL = 2.0  # seconds between refresh_state() calls
@@ -378,7 +382,10 @@ class BTCScalpStrategy(Strategy):
         """
         Compute the optimal sell price based on gain size and time remaining.
 
-        Tier 1 — gain < 15%: keep sell at profit_target; near expiry lower to entry+0.01.
+        Tier 1 — gain < 15%: time-decayed target:
+            >180s: entry + spread * TIER1_BOOST (e.g. 0.365)
+            120-180s: profit_target (0.35)
+            <120s: entry + 0.01 (near-breakeven adaptive exit)
         Tier 2 — gain 15-100%: trailing stop at 85-92% of high-water (time-interpolated).
         Tier 3 — gain > 100%: tighter trail at 88-94% of high-water.
 
@@ -391,10 +398,13 @@ class BTCScalpStrategy(Strategy):
         urgency = max(0.0, min(1.0, 1.0 - secs_remaining / 300.0))
 
         if gain < MOMENTUM_THRESHOLD:
-            # Tier 1: small gain — use flat target, drop to entry+0.01 near expiry
-            if secs_remaining < ADAPTIVE_EXIT_SECS:
+            # Tier 1: small gain — time-decayed target
+            if secs_remaining < ADAPTIVE_EXIT_SECS:                # < 120s: near-breakeven
                 return self.round_price(self.entry_price + 0.01)
-            return self.profit_target
+            if secs_remaining > 180:                               # > 180s: boosted target
+                spread = self.profit_target - self.entry_price
+                return self.round_price(self.entry_price + spread * TIER1_BOOST)
+            return self.profit_target                              # 120-180s: standard target
 
         elif gain < LARGE_GAIN_THRESHOLD:
             # Tier 2: significant run — trail with moderate slack
