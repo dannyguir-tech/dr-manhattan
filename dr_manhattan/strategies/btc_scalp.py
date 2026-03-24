@@ -15,9 +15,11 @@ Strategy mechanics:
 Features:
 - Auto-discovers and rolls the active BTC 5-min market window
 - Both-sides arbitrage: buy YES+NO immediately when combined ask < 0.97
+- BTC trend filter: suppresses bids on the losing side when BTC moves >0.3% from window open
+- Volatility-scaled spread: widens half_spread up to 2.5× during fast BTC moves
+- Two-phase expiry: cancel bids at 90s, actively sell inventory at market bid 60-90s out
 - Circuit breaker: pauses quoting after repeated order rejections
 - Daily loss limit: stops quoting when session P&L falls below threshold
-- Binance WebSocket feed for BTC context in status logs
 
 Fee structure (Polymarket, January 2026):
 - Limit orders earn 0.20% maker rebate on both legs
@@ -48,6 +50,16 @@ STATE_REFRESH_INTERVAL = 2.0  # seconds
 
 # Force-reprice all quotes after this many seconds even if mid hasn't moved
 QUOTE_MAX_AGE = 30.0  # seconds
+
+# BTC trend filter: suppress bids on losing outcome when BTC moves this far from window open
+TREND_THRESHOLD = 0.003  # 0.3% from window open price
+
+# Volatility-scaled spread: scale half_spread up when realized vol exceeds baseline
+VOL_SCALE_BASELINE = 0.50  # annualized vol at which no scaling occurs (~50% is very low for BTC)
+VOL_SCALE_MAX = 2.5        # cap multiplier at 2.5× (e.g. 0.03 → 0.075 at high vol)
+
+# Two-phase expiry: Phase 1 cancels bids and sells inventory at bid price
+EXPIRY_PHASE1_SECS = 60  # switch from Phase 1 to Phase 2 at this many seconds remaining
 
 # Circuit breaker: pause quoting after repeated API rejections
 CIRCUIT_BREAKER_THRESHOLD = 5
@@ -102,6 +114,7 @@ class BTCScalpStrategy(Strategy):
 
         # Per-window state
         self._window_reset: bool = False
+        self._liquidation_started: bool = False  # True after Phase 1 bid cancellation
         self._quotes_placed_at: Optional[float] = None  # timestamp of last quote batch
 
         # P&L and fill tracking
@@ -182,12 +195,25 @@ class BTCScalpStrategy(Strategy):
         now = time.time()
         secs = self._seconds_until_expiry()
 
-        # Fast path: roll window if expiring soon (checked every 100ms)
+        # Fast path: two-phase expiry (checked every 100ms)
         if secs < self.cancel_before_expiry:
-            if not self._window_reset:
-                logger.info(f"Window expiring in {secs:.0f}s — rolling")
-                self._reset_window()
-                self._window_reset = True
+            if secs > EXPIRY_PHASE1_SECS:
+                # Phase 1 (60–90s before expiry): cancel bids, sell inventory at market bid
+                if not self._liquidation_started:
+                    logger.info(f"Expiry Phase 1 ({secs:.0f}s): cancelling bids, liquidating inventory")
+                    self._cancel_all_bids()
+                    self._liquidation_started = True
+                # Re-check inventory every STATE_REFRESH_INTERVAL (not every 100ms)
+                if now - self._last_state_refresh >= STATE_REFRESH_INTERVAL:
+                    self.refresh_state()
+                    self._last_state_refresh = now
+                    self._liquidate_inventory_at_bid()
+            else:
+                # Phase 2 (<60s before expiry): full reset and roll
+                if not self._window_reset:
+                    logger.info(f"Expiry Phase 2 ({secs:.0f}s): resetting window")
+                    self._reset_window()
+                    self._window_reset = True
             new_market = self._find_btc_5min_market()
             if new_market and new_market.id != self.market_id:
                 self._switch_market(new_market)
@@ -259,6 +285,7 @@ class BTCScalpStrategy(Strategy):
         self._last_bid.clear()
         self._last_ask.clear()
         self._window_reset = False
+        self._liquidation_started = False
         self._quotes_placed_at = None
         self._window_start_btc = self._price_feed.price
         if self._window_start_btc:
@@ -284,6 +311,8 @@ class BTCScalpStrategy(Strategy):
           inventory while still collecting some spread on the sell side.
         - If the mid moves >1 tick from our current quote, cancel and repost
         - Force-reprice everything after QUOTE_MAX_AGE seconds
+        - BTC trend filter: skip bids on the outcome BTC is trending against
+        - Volatility-scaled spread: widen half_spread up to 2.5× during fast moves
         """
         if secs_remaining < MIN_WINDOW_FOR_QUOTING:
             return
@@ -300,6 +329,14 @@ class BTCScalpStrategy(Strategy):
             self.cancel_all_orders()
             self._quotes_placed_at = None
 
+        # Volatility-scaled spread: widen when BTC is moving fast
+        vol = self._price_feed.realized_vol_30s
+        if vol is not None:
+            vol_scale = max(1.0, min(vol / VOL_SCALE_BASELINE, VOL_SCALE_MAX))
+            effective_half_spread = self.half_spread * vol_scale
+        else:
+            effective_half_spread = self.half_spread
+
         for ot in self.outcome_tokens:
             if ot.outcome in self._arb_positions:
                 continue
@@ -315,9 +352,9 @@ class BTCScalpStrategy(Strategy):
             position = self._positions.get(ot.outcome, 0.0)
 
             # Inventory skew: reduce aggression on the heavy side
-            skew = (position / self.max_inventory) * self.half_spread
-            our_bid = self.round_price(mid - self.half_spread - skew)
-            our_ask = self.round_price(mid + self.half_spread - skew)
+            skew = (position / self.max_inventory) * effective_half_spread
+            our_bid = self.round_price(mid - effective_half_spread - skew)
+            our_ask = self.round_price(mid + effective_half_spread - skew)
 
             # Clamp to valid range
             our_bid = max(self.tick_size, min(our_bid, 1.0 - self.tick_size))
@@ -325,8 +362,8 @@ class BTCScalpStrategy(Strategy):
 
             buy_orders, sell_orders = self.get_orders_for_outcome(ot.outcome)
 
-            # BUY side — only post if below max inventory
-            if position < self.max_inventory:
+            # BUY side — only post if below max inventory and BTC trend allows
+            if position < self.max_inventory and not self._btc_trend_blocks_bid(ot.outcome):
                 if not self.has_order_at_price(buy_orders, our_bid):
                     self.cancel_stale_orders(buy_orders, our_bid)
                     try:
@@ -356,6 +393,63 @@ class BTCScalpStrategy(Strategy):
                     except Exception as e:
                         logger.warning(f"Ask failed ({ot.outcome}): {e}")
                         self._record_order_failure(f"ask {ot.outcome}")
+
+    def _btc_trend_blocks_bid(self, outcome: str) -> bool:
+        """
+        Return True if BTC is trending strongly against buying this outcome.
+
+        When BTC moves >TREND_THRESHOLD from window open, the losing outcome is in
+        free fall — posting bids there invites adverse selection from informed traders.
+        Sells on the same outcome are still allowed (to exit existing inventory).
+        """
+        current = self._price_feed.price
+        if not current and self._price_feed.is_fresh is False:
+            current = self._price_feed.fetch_price_rest()
+        if not current or not self._window_start_btc:
+            return False
+        pct = (current - self._window_start_btc) / self._window_start_btc
+        if outcome in ("Yes", "UP") and pct < -TREND_THRESHOLD:
+            logger.info(f"Bid blocked ({outcome}): BTC {pct:+.3%} from window open")
+            return True
+        if outcome in ("No", "DOWN") and pct > TREND_THRESHOLD:
+            logger.info(f"Bid blocked ({outcome}): BTC {pct:+.3%} from window open")
+            return True
+        return False
+
+    def _cancel_all_bids(self):
+        """Cancel all open buy orders, leaving sell orders (inventory exits) intact."""
+        buy_orders = [o for o in self._open_orders if o.side == OrderSide.BUY]
+        for order in buy_orders:
+            try:
+                self.client.cancel_order(order.id)
+            except Exception as e:
+                logger.warning(f"Cancel bid failed ({order.outcome}): {e}")
+        if buy_orders:
+            logger.info(f"Cancelled {len(buy_orders)} bids (expiry Phase 1)")
+
+    def _liquidate_inventory_at_bid(self):
+        """
+        Reprice all inventory sell orders to the current best bid for immediate exit.
+
+        Called during expiry Phase 1 (60–90s before close) to guarantee inventory
+        exits before the window resolves. Arb positions are excluded — they ride
+        to resolution at 1.00.
+        """
+        for ot in self.outcome_tokens:
+            pos = self._positions.get(ot.outcome, 0.0)
+            if pos < 1.0 or ot.outcome in self._arb_positions:
+                continue
+            bid, _ = self.get_best_bid_ask(ot.token_id)
+            if not bid or bid <= 0:
+                continue
+            _, sell_orders = self.get_orders_for_outcome(ot.outcome)
+            if not self.has_order_at_price(sell_orders, bid):
+                self.cancel_stale_orders(sell_orders, bid)
+                try:
+                    self.create_order(ot.outcome, OrderSide.SELL, bid, pos, ot.token_id)
+                    self.log_order(OrderSide.SELL, pos, ot.outcome, bid, "EXPIRY")
+                except Exception as e:
+                    logger.warning(f"Expiry sell failed ({ot.outcome}): {e}")
 
     # -------------------------------------------------------------------------
     # Fill detection and P&L
@@ -458,6 +552,7 @@ class BTCScalpStrategy(Strategy):
         self._last_bid.clear()
         self._last_ask.clear()
         self._quotes_placed_at = None
+        self._liquidation_started = False
 
     def _reconcile_on_startup(self) -> None:
         """Reconstruct state from live exchange on startup to avoid double-entry."""
@@ -506,7 +601,9 @@ class BTCScalpStrategy(Strategy):
         current_btc = self._price_feed.price
         if current_btc and self._window_start_btc:
             pct = (current_btc - self._window_start_btc) / self._window_start_btc
-            btc_str = f" | BTC ${current_btc:,.0f} ({pct:+.3%})"
+            vol = self._price_feed.realized_vol_30s
+            vol_str = f" vol={vol:.0%}" if vol is not None else ""
+            btc_str = f" | BTC ${current_btc:,.0f} ({pct:+.3%}{vol_str})"
         elif current_btc:
             btc_str = f" | BTC ${current_btc:,.0f}"
 
