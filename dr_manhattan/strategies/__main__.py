@@ -1,5 +1,5 @@
 """
-Entrypoint for running BTCScalpStrategy (BBO market maker) directly.
+Entrypoint for running BTCScalpStrategy directly.
 
 Usage:
     uv run python -m dr_manhattan.strategies
@@ -10,12 +10,11 @@ Required environment variables:
 
 Optional:
     POLYMARKET_API_KEY      — L2 CLOB API key (auto-derived if absent)
-    HALF_SPREAD             — Half the quoted bid-ask spread (default: 0.03)
-    ORDER_SIZE              — Contracts per order per side (default: 5)
-    MAX_INVENTORY           — Max contracts per outcome before buying stops (default: 50)
-    MAX_DAILY_LOSS          — Stop quoting when session P&L < -MAX (default: 50.0)
-    TELEGRAM_TOKEN          — Telegram bot token for trade alerts (optional)
-    TELEGRAM_CHAT_ID        — Telegram chat/user ID to send alerts to (optional)
+    ENTRY_PRICE             — Limit buy price for both outcomes (default: 0.32)
+    PROFIT_TARGET           — Initial sell price after fill (default: 0.35)
+    ORDER_SIZE_USD          — USD to risk per side before Kelly scaling (default: 10.0)
+    ORDER_LIFETIME          — Seconds before cancelling unfilled buys (default: 72)
+    MAX_DAILY_LOSS          — Stop placing entries when session P&L < -MAX (default: 50.0)
 """
 
 import logging
@@ -34,9 +33,10 @@ def main():
 
         strategy = BTCScalpStrategy(
             exchange=exchange,
-            half_spread=float(os.environ.get("HALF_SPREAD", "0.03").strip()),
-            order_size=int(os.environ.get("ORDER_SIZE", "5").strip()),
-            max_inventory=float(os.environ.get("MAX_INVENTORY", "50.0").strip()),
+            entry_price=float(os.environ.get("ENTRY_PRICE", "0.32").strip()),
+            profit_target=float(os.environ.get("PROFIT_TARGET", "0.35").strip()),
+            order_size_usd=float(os.environ.get("ORDER_SIZE_USD", "10.0").strip()),
+            order_lifetime=float(os.environ.get("ORDER_LIFETIME", "72").strip()),
             max_daily_loss=float(os.environ.get("MAX_DAILY_LOSS", "50.0").strip()),
         )
         strategy.run()
