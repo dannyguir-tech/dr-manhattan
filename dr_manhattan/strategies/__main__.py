@@ -35,9 +35,13 @@ def _start_health_server(port: int) -> None:
     """Bind a minimal HTTP server so Railway health checks pass."""
     class Handler(http.server.BaseHTTPRequestHandler):
         def do_GET(self):
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b"ok")
+            if self.path in ("/", "/health"):
+                self.send_response(200)
+                self.end_headers()
+                self.wfile.write(b"ok")
+            else:
+                self.send_response(404)
+                self.end_headers()
 
         def log_message(self, *args):
             pass  # silence per-request access logs
