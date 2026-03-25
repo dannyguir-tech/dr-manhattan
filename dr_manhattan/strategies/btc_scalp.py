@@ -41,6 +41,8 @@ Fee structure (Polymarket, January 2026):
 - Effective net profit per round trip is slightly above raw spread
 """
 
+import json
+import os
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
@@ -140,6 +142,9 @@ class BTCScalpStrategy(Strategy):
         # Track actual exit prices for accurate Kelly b-ratio
         self._sum_sell_prices: float = 0.0
         self._n_exits: int = 0
+
+        self._state_path: str = os.environ.get("KELLY_STATE_PATH", "/data/kelly_state.json")
+        self._load_kelly_state()
 
         # P&L tracking
         self._session_pnl: float = 0.0
@@ -324,8 +329,42 @@ class BTCScalpStrategy(Strategy):
             logger.info(f"New window: {market.question[:70]}")
 
     # -------------------------------------------------------------------------
-    # Kelly Criterion sizing
+    # Kelly Criterion sizing + persistence
     # -------------------------------------------------------------------------
+
+    def _load_kelly_state(self):
+        try:
+            with open(self._state_path) as f:
+                data = json.load(f)
+            self._wins = int(data.get("wins", 0))
+            self._losses = int(data.get("losses", 0))
+            self._sum_sell_prices = float(data.get("sum_sell_prices", 0.0))
+            self._n_exits = int(data.get("n_exits", 0))
+            avg = f"{self._sum_sell_prices / self._n_exits:.4f}" if self._n_exits > 0 else "n/a"
+            logger.info(
+                f"Kelly state loaded: W/L={self._wins}/{self._losses} "
+                f"exits={self._n_exits} avg_exit={avg}"
+            )
+        except FileNotFoundError:
+            logger.info("No Kelly state file found — starting fresh")
+        except Exception as e:
+            logger.warning(f"Could not load Kelly state: {e} — starting fresh")
+
+    def _save_kelly_state(self):
+        data = {
+            "wins": self._wins,
+            "losses": self._losses,
+            "sum_sell_prices": self._sum_sell_prices,
+            "n_exits": self._n_exits,
+        }
+        tmp = self._state_path + ".tmp"
+        try:
+            os.makedirs(os.path.dirname(self._state_path) or ".", exist_ok=True)
+            with open(tmp, "w") as f:
+                json.dump(data, f)
+            os.replace(tmp, self._state_path)
+        except Exception as e:
+            logger.warning(f"Could not save Kelly state: {e}")
 
     def _kelly_size(self) -> float:
         """
@@ -488,6 +527,7 @@ class BTCScalpStrategy(Strategy):
                     self._sum_sell_prices += sell_price
                     self._n_exits += 1
                     self._wins += 1
+                    self._save_kelly_state()
                     logger.info(
                         f"Sell filled: {outcome} @ {sell_price:.4f} "
                         f"(P&L: ${pnl:+.2f}, session: ${self._session_pnl:+.2f})"
@@ -602,6 +642,7 @@ class BTCScalpStrategy(Strategy):
                 loss = self.entry_price * contracts
                 self._session_pnl -= loss
             self._losses += 1
+            self._save_kelly_state()
         self.cancel_all_orders()
         self._buy_order_ids.clear()
         self._sell_order_ids.clear()
