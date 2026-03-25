@@ -393,6 +393,8 @@ class BTCScalpStrategy(Strategy):
             cash_ok = self._cached_cash <= 0 or self._cached_cash >= order_cost
             if not cash_ok:
                 logger.debug(f"Bid skipped ({ot.outcome}): insufficient cash ${self._cached_cash:.2f} < ${order_cost:.2f}")
+            if ofi < 0.40:
+                logger.debug("Bid skipped (%s): OFI=%.2f below 0.40 threshold", ot.outcome, ofi)
             if (
                 position < effective_max_inventory
                 and not self._btc_trend_blocks_bid(ot.outcome)
