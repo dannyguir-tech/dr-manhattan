@@ -26,6 +26,8 @@ import logging
 import os
 import signal
 import sys
+import threading
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -324,6 +326,36 @@ middleware = [
     )
 ]
 
+def _run_strategy() -> None:
+    """Run BTCScalpStrategy in a background daemon thread."""
+    try:
+        from .. import create_exchange
+        from ..strategies.btc_scalp import BTCScalpStrategy
+
+        exchange = create_exchange("polymarket", use_env=True, verbose=True)
+        strategy = BTCScalpStrategy(
+            exchange=exchange,
+            half_spread=float(os.getenv("HALF_SPREAD", "0.03").strip()),
+            order_size=int(os.getenv("ORDER_SIZE", "5").strip()),
+            max_inventory=float(os.getenv("MAX_INVENTORY", "50.0").strip()),
+            max_daily_loss=float(os.getenv("MAX_DAILY_LOSS", "50.0").strip()),
+        )
+        strategy.run()
+    except Exception as e:
+        logger.error("Strategy thread error: %s", e)
+
+
+@asynccontextmanager
+async def lifespan(app):
+    if os.getenv("POLYMARKET_PRIVATE_KEY") and os.getenv("POLYMARKET_FUNDER"):
+        t = threading.Thread(target=_run_strategy, daemon=True, name="btc-scalp")
+        t.start()
+        logger.info("BTCScalpStrategy started in background thread")
+    else:
+        logger.warning("POLYMARKET_PRIVATE_KEY or POLYMARKET_FUNDER not set — strategy not started")
+    yield
+
+
 routes = [
     Route("/", endpoint=root, methods=["GET"]),
     Route("/health", endpoint=health_check, methods=["GET"]),
@@ -331,7 +363,7 @@ routes = [
     Mount("/messages", app=handle_messages),
 ]
 
-app = Starlette(routes=routes, middleware=middleware)
+app = Starlette(routes=routes, middleware=middleware, lifespan=lifespan)
 
 
 # =============================================================================

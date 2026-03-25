@@ -2,7 +2,7 @@
 Entrypoint for running BTCScalpStrategy (BBO market maker) directly.
 
 Usage:
-    uv run python -m dr_manhattan.strategies.btc_scalp
+    uv run python -m dr_manhattan.strategies
 
 Required environment variables:
     POLYMARKET_PRIVATE_KEY  — 64-hex EVM private key (with or without 0x)
@@ -16,14 +16,11 @@ Optional:
     MAX_DAILY_LOSS          — Stop quoting when session P&L < -MAX (default: 50.0)
     TELEGRAM_TOKEN          — Telegram bot token for trade alerts (optional)
     TELEGRAM_CHAT_ID        — Telegram chat/user ID to send alerts to (optional)
-    PORT                    — Port for Railway health check endpoint (default: 8080)
 """
 
-import http.server
 import logging
 import os
 import sys
-import threading
 
 from dr_manhattan import create_exchange
 from dr_manhattan.strategies.btc_scalp import BTCScalpStrategy
@@ -31,31 +28,7 @@ from dr_manhattan.strategies.btc_scalp import BTCScalpStrategy
 logger = logging.getLogger(__name__)
 
 
-def _start_health_server(port: int) -> None:
-    """Bind a minimal HTTP server so Railway health checks pass."""
-    class Handler(http.server.BaseHTTPRequestHandler):
-        def do_GET(self):
-            if self.path in ("/", "/health"):
-                self.send_response(200)
-                self.end_headers()
-                self.wfile.write(b"ok")
-            else:
-                self.send_response(404)
-                self.end_headers()
-
-        def log_message(self, *args):
-            pass  # silence per-request access logs
-
-    server = http.server.HTTPServer(("", port), Handler)
-    t = threading.Thread(target=server.serve_forever, daemon=True)
-    t.start()
-    logger.info("Health check server listening on port %d", port)
-
-
 def main():
-    port = int(os.environ.get("PORT", "8080").strip())
-    _start_health_server(port)
-
     try:
         exchange = create_exchange("polymarket", use_env=True, verbose=True)
 
