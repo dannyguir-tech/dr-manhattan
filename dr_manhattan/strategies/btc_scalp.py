@@ -626,7 +626,7 @@ class BTCScalpStrategy(Strategy):
         self._positions = self.client.fetch_positions_dict_for_market(self.market)
         self._open_orders = self.client.fetch_open_orders(market_id=self.market_id)
         try:
-            self._cached_cash = self.client.get_usdc_balance()
+            self._cached_cash = self.client.fetch_balance().get("USDC", 0.0)
         except Exception:
             pass
 
