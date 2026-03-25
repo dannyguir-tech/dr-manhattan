@@ -137,11 +137,14 @@ class BTCScalpStrategy(Strategy):
         # Kelly Criterion state
         self._wins: int = 0
         self._losses: int = 0
-        self._seed_win_rate: float = 0.60  # conservative prior until enough data
 
         # Track actual exit prices for accurate Kelly b-ratio
         self._sum_sell_prices: float = 0.0
         self._n_exits: int = 0
+
+        # Empirical loss tracking for Kelly b-ratio
+        self._sum_loss_amounts: float = 0.0
+        self._n_losses_with_amounts: int = 0
 
         self._state_path: str = os.environ.get("KELLY_STATE_PATH", "/data/kelly_state.json")
         self._load_kelly_state()
@@ -154,9 +157,11 @@ class BTCScalpStrategy(Strategy):
         # Arb positions ride to resolution
         self._arb_positions: set = set()
 
-        # EWMA momentum filter
-        self._ewma_alpha: float = 0.3
-        self._price_ewma: Dict[str, float] = {}
+        # Fill rate tracking
+        self._buys_placed: int = 0
+        self._buys_filled: int = 0
+
+        # Price history for momentum filter
         self._price_history: Dict[str, List[Tuple[float, float]]] = {}
 
         # Trailing stop
@@ -241,7 +246,7 @@ class BTCScalpStrategy(Strategy):
         for ot in self.outcome_tokens:
             bid, ask = self.get_best_bid_ask(ot.token_id)
             if bid and ask:
-                self._update_price_ewma(ot.outcome, (bid + ask) / 2.0)
+                self._update_price_history(ot.outcome, (bid + ask) / 2.0)
 
         # Slow path: REST calls capped at STATE_REFRESH_INTERVAL
         if now - self._last_state_refresh < STATE_REFRESH_INTERVAL:
@@ -340,10 +345,16 @@ class BTCScalpStrategy(Strategy):
             self._losses = int(data.get("losses", 0))
             self._sum_sell_prices = float(data.get("sum_sell_prices", 0.0))
             self._n_exits = int(data.get("n_exits", 0))
+            self._sum_loss_amounts = float(data.get("sum_loss_amounts", 0.0))
+            self._n_losses_with_amounts = int(data.get("n_losses_with_amounts", 0))
+            self._buys_placed = int(data.get("buys_placed", 0))
+            self._buys_filled = int(data.get("buys_filled", 0))
             avg = f"{self._sum_sell_prices / self._n_exits:.4f}" if self._n_exits > 0 else "n/a"
+            avg_loss = f"{self._sum_loss_amounts / self._n_losses_with_amounts:.4f}" if self._n_losses_with_amounts > 0 else "n/a"
             logger.info(
                 f"Kelly state loaded: W/L={self._wins}/{self._losses} "
-                f"exits={self._n_exits} avg_exit={avg}"
+                f"exits={self._n_exits} avg_exit={avg} avg_loss={avg_loss} "
+                f"fills={self._buys_filled}/{self._buys_placed}"
             )
         except FileNotFoundError:
             logger.info("No Kelly state file found — starting fresh")
@@ -356,6 +367,10 @@ class BTCScalpStrategy(Strategy):
             "losses": self._losses,
             "sum_sell_prices": self._sum_sell_prices,
             "n_exits": self._n_exits,
+            "sum_loss_amounts": self._sum_loss_amounts,
+            "n_losses_with_amounts": self._n_losses_with_amounts,
+            "buys_placed": self._buys_placed,
+            "buys_filled": self._buys_filled,
         }
         tmp = self._state_path + ".tmp"
         try:
@@ -369,19 +384,20 @@ class BTCScalpStrategy(Strategy):
     def _kelly_size(self) -> float:
         """
         f* = p - (1-p)/b
-        where p = win rate, b = win_amount / loss_amount.
+        where p = Bayesian win rate (6 pseudo-wins, 4 pseudo-losses prior),
+        b = win_amount / avg_loss (empirical once >= 5 losses observed).
 
-        Win: avg_exit - entry. Loss: ~5% of entry (emergency exit bound).
-        Uses actual historical avg exit once >= 5 exits observed.
+        Defaults: avg_exit = profit_target, avg_loss = entry_price (full loss).
         Returns a fraction of order_size_usd, clamped to 10-100%.
         """
-        total = self._wins + self._losses
-        p = self._wins / total if total >= 10 else self._seed_win_rate
+        p = (self._wins + 6) / (self._wins + self._losses + 10)
         avg_exit = self._sum_sell_prices / self._n_exits if self._n_exits >= 5 else self.profit_target
+        avg_loss = self._sum_loss_amounts / self._n_losses_with_amounts if self._n_losses_with_amounts >= 5 else self.entry_price
         win_amount = avg_exit - self.entry_price
-        loss_amount = self.entry_price * 0.05
-        b = win_amount / loss_amount
+        b = win_amount / avg_loss
         f = p - (1.0 - p) / b
+        if f < 0:
+            logger.warning(f"Kelly f*={f:.3f} (negative edge): p={p:.2f} b={b:.3f} — sizing at floor 10%")
         f = max(0.10, min(f, 1.0))
         return round(self.order_size_usd * f, 2)
 
@@ -414,13 +430,7 @@ class BTCScalpStrategy(Strategy):
     # EWMA momentum filter
     # -------------------------------------------------------------------------
 
-    def _update_price_ewma(self, outcome: str, mid: float):
-        if outcome not in self._price_ewma:
-            self._price_ewma[outcome] = mid
-        else:
-            self._price_ewma[outcome] = (
-                self._ewma_alpha * mid + (1.0 - self._ewma_alpha) * self._price_ewma[outcome]
-            )
+    def _update_price_history(self, outcome: str, mid: float):
         history = self._price_history.setdefault(outcome, [])
         history.append((time.time(), mid))
         if len(history) > 60:
@@ -505,6 +515,7 @@ class BTCScalpStrategy(Strategy):
             try:
                 order = self.create_order(ot.outcome, OrderSide.BUY, self.entry_price, contracts, ot.token_id)
                 self._buy_order_ids[ot.outcome] = order.id
+                self._buys_placed += 1
                 self.log_order(OrderSide.BUY, contracts, ot.outcome, self.entry_price)
             except Exception as e:
                 logger.warning(f"Buy order failed ({ot.outcome}): {e}")
@@ -594,6 +605,7 @@ class BTCScalpStrategy(Strategy):
             if is_first_detection:
                 self._high_water[ot.outcome] = current_mid if current_mid else self.entry_price
                 self._fill_contracts[ot.outcome] = pos
+                self._buys_filled += 1
                 logger.info(
                     f"Fill: {ot.outcome} {pos:.0f}c — placing sell "
                     f"(mid={self._high_water[ot.outcome]:.4f})"
@@ -641,6 +653,8 @@ class BTCScalpStrategy(Strategy):
             if contracts > 0:
                 loss = self.entry_price * contracts
                 self._session_pnl -= loss
+                self._sum_loss_amounts += self.entry_price
+                self._n_losses_with_amounts += 1
             self._losses += 1
             self._save_kelly_state()
         self.cancel_all_orders()
@@ -685,10 +699,12 @@ class BTCScalpStrategy(Strategy):
         elif current_btc:
             btc_str = f" | BTC ${current_btc:,.0f}"
 
+        fill_rate = f"{self._buys_filled}/{self._buys_placed}" if self._buys_placed else "0/0"
         logger.info(
             f"  [Scalp] W/L: {self._wins}/{self._losses} ({win_rate}) | "
             f"P&L: ${self._session_pnl:+.2f} | "
             f"Kelly: ${kelly_usd:.2f} | "
+            f"Fills: {fill_rate} | "
             f"Window: {secs_remaining:.0f}s | "
             f"Buys: {len(self._buy_order_ids)} | "
             f"Sells: {len(self._sell_order_ids)}"
