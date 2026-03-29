@@ -390,7 +390,7 @@ class BTCScalpStrategy(Strategy):
             # OFI doesn't show strong sell pressure, and cash covers the order
             ofi = self._order_flow_imbalance(ot.token_id)
             order_cost = our_bid * self.order_size
-            cash_ok = self._cached_cash <= 0 or self._cached_cash >= order_cost
+            cash_ok = self._cached_cash >= order_cost if self._cached_cash > 0 else False
             if not cash_ok:
                 logger.debug(f"Bid skipped ({ot.outcome}): insufficient cash ${self._cached_cash:.2f} < ${order_cost:.2f}")
             if (
