@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Dr. Manhattan Polymarket Bridge", version="0.2.0")
+app = FastAPI(title="Dr. Manhattan Polymarket Bridge", version="0.2.1")
 
 SENSITIVE_SCAN_KEYS = (
     "wallet",
@@ -86,6 +86,9 @@ async def polymarket_scan(request: Request):
         payload = await request.json()
     except Exception:
         return JSONResponse({"error": "Invalid JSON payload"}, status_code=400)
+
+    if not isinstance(payload, Mapping):
+        return JSONResponse({"error": "Expected a JSON object payload"}, status_code=400)
 
     sanitized_scan = sanitize_scan_payload(payload)
     delivery = _publish_scan_to_poke(sanitized_scan)
