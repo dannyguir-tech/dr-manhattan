@@ -1,22 +1,19 @@
-"""FastAPI bridge for Polymarket scan grading."""
+"""FastAPI bridge for Polymarket scan forwarding."""
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
-import os
 import re
 from collections.abc import Mapping
 from typing import Any
 
-import requests
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Dr. Manhattan Polymarket Bridge", version="0.1.0")
+app = FastAPI(title="Dr. Manhattan Polymarket Bridge", version="0.2.0")
 
 SENSITIVE_SCAN_KEYS = (
     "wallet",
@@ -30,6 +27,7 @@ SENSITIVE_SCAN_KEYS = (
 )
 PRIVATE_KEY_RE = re.compile(r"0x[a-fA-F0-9]{64}")
 WALLET_ADDRESS_RE = re.compile(r"0x[a-fA-F0-9]{40}")
+POKE_SCAN_LOG_PREFIX = "POKE_POLYMARKET_SCAN"
 
 
 def _redact_string(value: str) -> str:
@@ -62,60 +60,18 @@ def sanitize_scan_payload(value: Any) -> Any:
     return value
 
 
-def _grade_scan_with_anthropic(sanitized_scan: dict[str, Any]) -> dict[str, Any]:
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ValueError("ANTHROPIC_API_KEY is not configured")
-
-    model = os.getenv("ANTHROPIC_MODEL", "claude-opus-4-20250514")
-    anthropic_version = os.getenv("ANTHROPIC_VERSION", "2023-06-01")
-    max_tokens = int(os.getenv("ANTHROPIC_MAX_TOKENS", "1024"))
-
-    system_prompt = (
-        "You grade sanitized Polymarket scan signals for trade quality. "
-        "Use only the cleaned payload. Return concise JSON with verdict, score, "
-        "confidence, action, thesis, risks, and key_signals."
-    )
-    user_prompt = (
-        "Grade this sanitized Polymarket scan for trade opportunities.\n\n"
-        f"Sanitized scan:\n{json.dumps(sanitized_scan, indent=2, sort_keys=True, default=str)}"
-    )
-
-    response = requests.post(
-        "https://api.anthropic.com/v1/messages",
-        headers={
-            "x-api-key": api_key,
-            "anthropic-version": anthropic_version,
-            "content-type": "application/json",
-        },
-        json={
-            "model": model,
-            "max_tokens": max_tokens,
-            "temperature": 0.2,
-            "system": system_prompt,
-            "messages": [{"role": "user", "content": user_prompt}],
-        },
-        timeout=60,
-    )
-    response.raise_for_status()
-
-    anthropic_json = response.json()
-    text = "".join(
-        block.get("text", "")
-        for block in anthropic_json.get("content", [])
-        if isinstance(block, dict) and block.get("type") == "text"
-    ).strip()
-
-    parsed: Any = None
-    try:
-        parsed = json.loads(text)
-    except json.JSONDecodeError:
-        parsed = None
-
+def _publish_scan_to_poke(sanitized_scan: dict[str, Any]) -> dict[str, Any]:
+    """Emit the sanitized scan in a structured log line retrievable by agents."""
+    payload = {
+        "event": "polymarket_scan",
+        "source": "dr-manhattan",
+        "sanitized_scan": sanitized_scan,
+    }
+    logger.info("%s %s", POKE_SCAN_LOG_PREFIX, json.dumps(payload, sort_keys=True, default=str))
     return {
-        "model": model,
-        "text": text,
-        "parsed": parsed,
+        "delivery": "logged",
+        "event": "polymarket_scan",
+        "log_prefix": POKE_SCAN_LOG_PREFIX,
     }
 
 
@@ -132,15 +88,10 @@ async def polymarket_scan(request: Request):
         return JSONResponse({"error": "Invalid JSON payload"}, status_code=400)
 
     sanitized_scan = sanitize_scan_payload(payload)
-
-    try:
-        grade = await asyncio.to_thread(_grade_scan_with_anthropic, sanitized_scan)
-    except Exception as exc:
-        logger.exception("Polymarket scan grading failed")
-        return JSONResponse({"error": str(exc)}, status_code=500)
+    delivery = _publish_scan_to_poke(sanitized_scan)
 
     return {
-        "status": "graded",
+        "status": "forwarded",
         "sanitized_scan": sanitized_scan,
-        "trade_grade": grade,
+        "delivery": delivery,
     }
