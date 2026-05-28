@@ -19,38 +19,44 @@ Optional:
     PORT                    — Port for Railway health check endpoint (default: 8080)
 """
 
-import http.server
 import logging
 import os
 import sys
 import threading
 
+import uvicorn
+
 from dr_manhattan import create_exchange
+from dr_manhattan.bridge_api import app as bridge_api_app
 from dr_manhattan.strategies.btc_scalp import BTCScalpStrategy
 
 logger = logging.getLogger(__name__)
 
 
-def _start_health_server(port: int) -> None:
-    """Bind a minimal HTTP server so Railway health checks pass."""
-    class Handler(http.server.BaseHTTPRequestHandler):
-        def do_GET(self):
-            self.send_response(200)
-            self.end_headers()
-            self.wfile.write(b"ok")
+class _UvicornServer(uvicorn.Server):
+    def install_signal_handlers(self) -> None:
+        """Disable signal registration when serving from a background thread."""
+        return
 
-        def log_message(self, *args):
-            pass  # silence per-request access logs
 
-    server = http.server.HTTPServer(("", port), Handler)
-    t = threading.Thread(target=server.serve_forever, daemon=True)
-    t.start()
-    logger.info("Health check server listening on port %d", port)
+def _start_bridge_api(port: int) -> None:
+    """Start the FastAPI bridge API in a background thread."""
+    config = uvicorn.Config(
+        bridge_api_app,
+        host="0.0.0.0",
+        port=port,
+        log_level="warning",
+        access_log=False,
+    )
+    server = _UvicornServer(config)
+    thread = threading.Thread(target=server.run, daemon=True)
+    thread.start()
+    logger.info("Bridge API listening on port %d", port)
 
 
 def main():
     port = int(os.environ.get("PORT", "8080").strip())
-    _start_health_server(port)
+    _start_bridge_api(port)
 
     try:
         exchange = create_exchange("polymarket", use_env=True, verbose=True)
