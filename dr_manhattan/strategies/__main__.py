@@ -15,7 +15,7 @@ Optional:
     MAX_INVENTORY           — Max contracts per outcome before buying stops (default: 50)
     MAX_DAILY_LOSS          — Stop quoting when session P&L < -MAX (default: 50.0)
     TELEGRAM_TOKEN          — Telegram bot token for trade alerts (optional)
-    TELEGRAM_CHAT_ID        — Telegram chat/user ID to send alerts to (optional)
+    TELEGRAM_CHAT_ID        — Telegram bot token for trade alerts (optional)
     PORT                    — Port for Railway health check endpoint (default: 8080)
 """
 
@@ -23,6 +23,7 @@ import logging
 import os
 import sys
 import threading
+from typing import Optional
 
 import uvicorn
 
@@ -37,6 +38,36 @@ class _UvicornServer(uvicorn.Server):
     def install_signal_handlers(self) -> None:
         """Disable signal registration when serving from a background thread."""
         return
+
+
+def _read_env(name: str, default: Optional[str] = None) -> str:
+    value = os.getenv(name, default if default is not None else "")
+    if value is None:
+        return ""
+    return value.strip()
+
+
+def _require_env(name: str) -> str:
+    value = _read_env(name)
+    if not value:
+        raise ValueError(f"Missing required environment variable: {name}")
+    return value
+
+
+def _parse_int_env(name: str, default: int) -> int:
+    raw_value = _read_env(name, str(default))
+    try:
+        return int(raw_value)
+    except ValueError as exc:
+        raise ValueError(f"Invalid integer for {name}: {raw_value!r}") from exc
+
+
+def _parse_float_env(name: str, default: float) -> float:
+    raw_value = _read_env(name, str(default))
+    try:
+        return float(raw_value)
+    except ValueError as exc:
+        raise ValueError(f"Invalid number for {name}: {raw_value!r}") from exc
 
 
 def _start_bridge_api(port: int) -> None:
@@ -55,7 +86,21 @@ def _start_bridge_api(port: int) -> None:
 
 
 def main():
-    port = int(os.environ.get("PORT", "8080").strip())
+    try:
+        port = _parse_int_env("PORT", 8080)
+        half_spread = _parse_float_env("HALF_SPREAD", 0.03)
+        order_size = _parse_int_env("ORDER_SIZE", 5)
+        max_inventory = _parse_float_env("MAX_INVENTORY", 50.0)
+        max_daily_loss = _parse_float_env("MAX_DAILY_LOSS", 50.0)
+
+        # Fail fast with a clear error if the Railway deployment is missing the
+        # credentials required to create a Polymarket exchange session.
+        _require_env("POLYMARKET_PRIVATE_KEY")
+        _require_env("POLYMARKET_FUNDER")
+    except ValueError as exc:
+        logger.error("Startup configuration error: %s", exc)
+        sys.exit(1)
+
     _start_bridge_api(port)
 
     try:
@@ -63,10 +108,10 @@ def main():
 
         strategy = BTCScalpStrategy(
             exchange=exchange,
-            half_spread=float(os.environ.get("HALF_SPREAD", "0.03").strip()),
-            order_size=int(os.environ.get("ORDER_SIZE", "5").strip()),
-            max_inventory=float(os.environ.get("MAX_INVENTORY", "50.0").strip()),
-            max_daily_loss=float(os.environ.get("MAX_DAILY_LOSS", "50.0").strip()),
+            half_spread=half_spread,
+            order_size=order_size,
+            max_inventory=max_inventory,
+            max_daily_loss=max_daily_loss,
         )
         strategy.run()
     except Exception as e:
