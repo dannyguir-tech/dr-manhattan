@@ -25,6 +25,10 @@ class PolymarketConfig(BaseExchangeConfig):
     funder: str = ""
     api_key: Optional[str] = None
     cache_ttl: float = 2.0
+    # 0 = EOA (plain MetaMask wallet, default)
+    # 1 = Gnosis Safe
+    # 2 = Proxy wallet (requires a separate proxy contract address)
+    signature_type: int = 0
 
 
 @dataclass

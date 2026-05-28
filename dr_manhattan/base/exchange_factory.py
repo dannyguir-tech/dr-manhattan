@@ -129,11 +129,25 @@ def _merge_config(target: ExchangeConfig, source: ExchangeConfig) -> None:
 def _load_env_config(name: str) -> ExchangeConfig:
     """Load exchange config from environment variables."""
     if name == "polymarket":
+        # Parse POLYMARKET_SIGNATURE_TYPE:
+        #   0 = EOA / plain MetaMask wallet (default — correct for most users)
+        #   1 = Gnosis Safe
+        #   2 = Proxy wallet (needs separate proxy contract address as funder)
+        _sig_type_raw = os.getenv("POLYMARKET_SIGNATURE_TYPE", "0").strip()
+        try:
+            _sig_type = int(_sig_type_raw)
+        except ValueError:
+            import logging as _logging
+            _logging.getLogger(__name__).warning(
+                "Invalid POLYMARKET_SIGNATURE_TYPE %r, defaulting to 0 (EOA)", _sig_type_raw
+            )
+            _sig_type = 0
         return PolymarketConfig(
             private_key=os.getenv("POLYMARKET_PRIVATE_KEY", "").strip(),
             funder=os.getenv("POLYMARKET_FUNDER", "").strip(),
             api_key=(os.getenv("POLYMARKET_API_KEY") or "").strip() or None,
             cache_ttl=float(os.getenv("POLYMARKET_CACHE_TTL", "2.0").strip()),
+            signature_type=_sig_type,
         )
     elif name == "opinion":
         return OpinionConfig(
