@@ -39,19 +39,41 @@ class StrategySessionManager:
         with cls._lock:
             if cls._instance is None:
                 cls._instance = super().__new__(cls)
-                # Initialize within the lock to prevent race condition
                 cls._instance._sessions: Dict[str, StrategySession] = {}
                 cls._instance._instance_lock = threading.Lock()
-                # Orphaned sessions that failed to terminate
                 cls._instance._orphaned_sessions: Dict[str, str] = {}
-                # Status cache: session_id -> (timestamp, status_dict)
                 cls._instance._status_cache: Dict[str, Tuple[float, Dict[str, Any]]] = {}
                 logger.info("StrategySessionManager initialized")
+            else:
+                cls._instance._ensure_state()
         return cls._instance
 
     def __init__(self):
         """No-op: initialization done in __new__ to prevent race conditions."""
-        pass
+        self._ensure_state()
+
+    def _ensure_state(self) -> None:
+        """Repair any missing or None-backed internal state."""
+        if not hasattr(self, "_instance_lock") or self._instance_lock is None:
+            self._instance_lock = threading.Lock()
+        if not hasattr(self, "_sessions") or self._sessions is None:
+            self._sessions = {}
+        if not hasattr(self, "_orphaned_sessions") or self._orphaned_sessions is None:
+            self._orphaned_sessions = {}
+        if not hasattr(self, "_status_cache") or self._status_cache is None:
+            self._status_cache = {}
+
+    def _safe_sessions(self) -> Dict[str, StrategySession]:
+        self._ensure_state()
+        return self._sessions if isinstance(self._sessions, dict) else {}
+
+    def _safe_orphaned_sessions(self) -> Dict[str, str]:
+        self._ensure_state()
+        return self._orphaned_sessions if isinstance(self._orphaned_sessions, dict) else {}
+
+    def _safe_status_cache(self) -> Dict[str, Tuple[float, Dict[str, Any]]]:
+        self._ensure_state()
+        return self._status_cache if isinstance(self._status_cache, dict) else {}
 
     def create_session(
         self,
@@ -77,14 +99,9 @@ class StrategySessionManager:
         session_id = str(uuid.uuid4())
 
         try:
-            # Extract duration_minutes before passing to strategy constructor
-            # (duration_minutes is passed to run(), not __init__)
             duration_minutes = params.pop("duration_minutes", None)
-
-            # Create strategy instance (without duration_minutes)
             strategy = strategy_class(exchange=exchange, market_id=market_id, **params)
 
-            # Create session
             session = StrategySession(
                 id=session_id,
                 strategy_type=strategy_class.__name__,
@@ -94,7 +111,6 @@ class StrategySessionManager:
                 status=SessionStatus.RUNNING,
             )
 
-            # Start in background thread (daemon=True allows clean shutdown)
             thread = threading.Thread(
                 target=self._run_strategy,
                 args=(session_id, strategy, duration_minutes),
@@ -123,23 +139,24 @@ class StrategySessionManager:
             logger.info(f"Starting strategy execution: {session_id}")
             strategy.run(duration_minutes=duration_minutes)
 
-            # Update status when done and clear cache
             with self._instance_lock:
-                if session_id in self._sessions:
-                    self._sessions[session_id].status = SessionStatus.STOPPED
-                # Clear cache for completed session (prevents memory leak)
-                if session_id in self._status_cache:
-                    del self._status_cache[session_id]
+                sessions = self._safe_sessions()
+                if session_id in sessions:
+                    sessions[session_id].status = SessionStatus.STOPPED
+                status_cache = self._safe_status_cache()
+                if session_id in status_cache:
+                    del status_cache[session_id]
 
         except Exception as e:
             logger.error(f"Strategy execution failed: {e}")
             with self._instance_lock:
-                if session_id in self._sessions:
-                    self._sessions[session_id].status = SessionStatus.ERROR
-                    self._sessions[session_id].error = str(e)
-                # Clear cache for failed session (prevents memory leak)
-                if session_id in self._status_cache:
-                    del self._status_cache[session_id]
+                sessions = self._safe_sessions()
+                if session_id in sessions:
+                    sessions[session_id].status = SessionStatus.ERROR
+                    sessions[session_id].error = str(e)
+                status_cache = self._safe_status_cache()
+                if session_id in status_cache:
+                    del status_cache[session_id]
 
     def get_session(self, session_id: str) -> StrategySession:
         """
@@ -154,7 +171,8 @@ class StrategySessionManager:
         Raises:
             ValueError: If session not found
         """
-        session = self._sessions.get(session_id)
+        sessions = self._safe_sessions()
+        session = sessions.get(session_id)
         if not session:
             raise ValueError(f"Session not found: {session_id}")
         return session
@@ -166,25 +184,23 @@ class StrategySessionManager:
         Must be called while holding _instance_lock.
         Removes entries older than TTL or exceeding max size.
         """
-        # Remove expired entries first
+        status_cache = self._safe_status_cache()
         expired = [
             sid
-            for sid, (cached_time, _) in self._status_cache.items()
+            for sid, (cached_time, _) in list(status_cache.items())
             if now - cached_time >= STATUS_CACHE_TTL
         ]
         for sid in expired:
-            del self._status_cache[sid]
+            status_cache.pop(sid, None)
 
-        # If still over limit, remove oldest entries
-        if len(self._status_cache) > STATUS_CACHE_MAX_SIZE:
-            # Sort by timestamp and remove oldest
+        if len(status_cache) > STATUS_CACHE_MAX_SIZE:
             sorted_entries = sorted(
-                self._status_cache.items(),
-                key=lambda x: x[1][0],  # Sort by cached_time
+                status_cache.items(),
+                key=lambda x: x[1][0],
             )
-            entries_to_remove = len(self._status_cache) - STATUS_CACHE_MAX_SIZE
+            entries_to_remove = len(status_cache) - STATUS_CACHE_MAX_SIZE
             for sid, _ in sorted_entries[:entries_to_remove]:
-                del self._status_cache[sid]
+                status_cache.pop(sid, None)
 
     def get_status(self, session_id: str) -> Dict[str, Any]:
         """
@@ -202,24 +218,20 @@ class StrategySessionManager:
         """
         now = time.time()
 
-        # Check cache first (thread-safe read)
         with self._instance_lock:
-            if session_id in self._status_cache:
-                cached_time, cached_status = self._status_cache[session_id]
+            status_cache = self._safe_status_cache()
+            if session_id in status_cache:
+                cached_time, cached_status = status_cache[session_id]
                 if now - cached_time < STATUS_CACHE_TTL:
                     return cached_status
 
-        # Cache miss - compute fresh status (outside lock to avoid blocking)
         status = self._compute_status(session_id)
 
-        # Update cache (thread-safe write) with size check
         with self._instance_lock:
-            # Evict BEFORE adding to prevent exceeding max size under concurrent load
+            status_cache = self._safe_status_cache()
             self._evict_stale_cache_entries(now)
-
-            # Only add if under limit (prevents unbounded growth from concurrent requests)
-            if len(self._status_cache) < STATUS_CACHE_MAX_SIZE:
-                self._status_cache[session_id] = (now, status)
+            if len(status_cache) < STATUS_CACHE_MAX_SIZE:
+                status_cache[session_id] = (now, status)
 
         return status
 
@@ -236,17 +248,17 @@ class StrategySessionManager:
         session = self.get_session(session_id)
         strategy = session.strategy
 
-        # Refresh state
         try:
             strategy.refresh_state()
         except Exception as e:
             logger.warning(f"Failed to refresh strategy state: {e}")
 
-        # Calculate uptime
         uptime = (datetime.now() - session.created_at).total_seconds()
+        orphaned_sessions = self._safe_orphaned_sessions()
+        is_orphaned = session_id in orphaned_sessions
 
-        # Check if session is orphaned
-        is_orphaned = session_id in self._orphaned_sessions
+        open_orders = getattr(strategy, "open_orders", []) or []
+        positions = getattr(strategy, "positions", {}) or {}
 
         return {
             "session_id": session_id,
@@ -255,14 +267,14 @@ class StrategySessionManager:
             "exchange": session.exchange_name,
             "market_id": session.market_id,
             "uptime_seconds": uptime,
-            "is_running": strategy.is_running,
+            "is_running": bool(getattr(strategy, "is_running", False)),
             "thread_alive": session.is_alive(),
             "is_orphaned": is_orphaned,
-            "nav": strategy.nav,
-            "cash": strategy.cash,
-            "positions": strategy.positions,
-            "delta": strategy.delta,
-            "open_orders_count": len(strategy.open_orders),
+            "nav": getattr(strategy, "nav", 0.0),
+            "cash": getattr(strategy, "cash", 0.0),
+            "positions": positions,
+            "delta": getattr(strategy, "delta", 0.0),
+            "open_orders_count": len(open_orders),
             "error": session.error,
         }
 
@@ -313,8 +325,6 @@ class StrategySessionManager:
             True if thread stopped, False if still running (orphaned)
         """
         strategy = session.strategy
-
-        # Second attempt: force is_running = False and wait again
         strategy.is_running = False
 
         if session.thread and session.thread.is_alive():
@@ -322,11 +332,9 @@ class StrategySessionManager:
             session.thread.join(timeout=THREAD_FORCE_KILL_TIMEOUT)
 
             if session.thread.is_alive():
-                # Thread is orphaned - mark it and log
                 total_timeout = THREAD_GRACE_PERIOD + THREAD_FORCE_KILL_TIMEOUT
-                self._orphaned_sessions[session_id] = (
-                    f"Thread did not terminate after {total_timeout}s"
-                )
+                orphaned_sessions = self._safe_orphaned_sessions()
+                orphaned_sessions[session_id] = f"Thread did not terminate after {total_timeout}s"
                 logger.error(
                     f"Strategy thread {session_id} is orphaned. "
                     "Thread may still be running in background. "
@@ -355,42 +363,31 @@ class StrategySessionManager:
         strategy = session.strategy
 
         logger.info(f"Stopping strategy: {session_id} (cleanup={cleanup})")
-
-        # Phase 1: Graceful stop
         strategy.stop()
 
-        # Wait for thread to finish (with grace period)
         thread_stopped = True
         if session.thread and session.thread.is_alive():
             session.thread.join(timeout=THREAD_GRACE_PERIOD)
 
-            # Check if thread is still alive after grace period
             if session.thread.is_alive():
                 logger.warning(
                     f"Strategy thread {session_id} did not stop within grace period "
                     f"({THREAD_GRACE_PERIOD}s). Attempting force-stop..."
                 )
-                # Phase 2: Force-kill
                 thread_stopped = self._force_stop_thread(session_id, session)
 
-        # Clear status cache for this session (thread-safe)
         with self._instance_lock:
-            if session_id in self._status_cache:
-                del self._status_cache[session_id]
+            status_cache = self._safe_status_cache()
+            if session_id in status_cache:
+                del status_cache[session_id]
 
-        # Get final status
         final_status = self._compute_status(session_id)
-
-        # Update session status
         session.status = SessionStatus.STOPPED
-
-        # Add thread status to response
         final_status["thread_stopped"] = thread_stopped
         if not thread_stopped:
             final_status["warning"] = "Thread is orphaned and may still be running"
 
         logger.info(f"Strategy stopped: {session_id} (thread_stopped={thread_stopped})")
-
         return final_status
 
     def get_metrics(self, session_id: str) -> Dict[str, Any]:
@@ -406,19 +403,17 @@ class StrategySessionManager:
         session = self.get_session(session_id)
         strategy = session.strategy
 
-        # Refresh state
         strategy.refresh_state()
-
         uptime = (datetime.now() - session.created_at).total_seconds()
 
         return {
             "session_id": session_id,
             "uptime_seconds": uptime,
-            "current_nav": strategy.nav,
-            "cash": strategy.cash,
-            "positions_value": strategy.nav - strategy.cash,
-            "current_delta": strategy.delta,
-            "open_orders": len(strategy.open_orders),
+            "current_nav": getattr(strategy, "nav", 0.0),
+            "cash": getattr(strategy, "cash", 0.0),
+            "positions_value": getattr(strategy, "nav", 0.0) - getattr(strategy, "cash", 0.0),
+            "current_delta": getattr(strategy, "delta", 0.0),
+            "open_orders": len(getattr(strategy, "open_orders", []) or []),
         }
 
     def list_sessions(self) -> Dict[str, Any]:
@@ -429,18 +424,21 @@ class StrategySessionManager:
             Dictionary of session_id -> session info
         """
         with self._instance_lock:
+            sessions = self._safe_sessions()
+            orphaned_sessions = self._safe_orphaned_sessions()
             return {
                 sid: {
                     "session_id": sid,
-                    "strategy_type": session.strategy_type,
-                    "exchange": session.exchange_name,
-                    "market_id": session.market_id,
-                    "status": session.status.value,
-                    "created_at": session.created_at.isoformat(),
-                    "is_alive": session.is_alive(),
-                    "is_orphaned": sid in self._orphaned_sessions,
+                    "strategy_type": getattr(session, "strategy_type", "unknown"),
+                    "exchange": getattr(session, "exchange_name", "unknown"),
+                    "market_id": getattr(session, "market_id", "unknown"),
+                    "status": getattr(getattr(session, "status", None), "value", "unknown"),
+                    "created_at": getattr(session, "created_at", datetime.utcnow()).isoformat(),
+                    "is_alive": bool(session and session.is_alive()),
+                    "is_orphaned": sid in orphaned_sessions,
                 }
-                for sid, session in self._sessions.items()
+                for sid, session in list(sessions.items())
+                if session is not None
             }
 
     def get_orphaned_sessions(self) -> Dict[str, str]:
@@ -450,7 +448,7 @@ class StrategySessionManager:
         Returns:
             Dictionary of session_id -> reason for orphan status
         """
-        return dict(self._orphaned_sessions)
+        return dict(self._safe_orphaned_sessions())
 
     def cleanup(self):
         """
@@ -462,17 +460,19 @@ class StrategySessionManager:
         """
         logger.info("Cleaning up strategy sessions...")
         with self._instance_lock:
+            sessions = self._safe_sessions()
+            status_cache = self._safe_status_cache()
             failed_sessions = []
-            for session_id, session in list(self._sessions.items()):
+            for session_id, session in list(sessions.items()):
+                if session is None:
+                    continue
                 try:
                     logger.info(f"Stopping strategy: {session_id}")
                     session.strategy.stop()
 
-                    # Phase 1: Graceful stop with timeout
                     if session.thread and session.thread.is_alive():
                         session.thread.join(timeout=THREAD_CLEANUP_TIMEOUT)
 
-                        # Phase 2: Force-stop if still alive
                         if session.thread.is_alive():
                             logger.warning(
                                 f"Strategy thread {session_id} did not stop "
@@ -482,10 +482,8 @@ class StrategySessionManager:
                             session.thread.join(timeout=THREAD_FORCE_KILL_TIMEOUT)
 
                             if session.thread.is_alive():
-                                # Mark as orphaned
-                                self._orphaned_sessions[session_id] = (
-                                    "Failed to terminate during cleanup"
-                                )
+                                orphaned_sessions = self._safe_orphaned_sessions()
+                                orphaned_sessions[session_id] = "Failed to terminate during cleanup"
                                 logger.error(
                                     f"Strategy thread {session_id} is orphaned during cleanup"
                                 )
@@ -495,12 +493,9 @@ class StrategySessionManager:
                     logger.error(f"Error stopping strategy {session_id}: {e}")
                     failed_sessions.append(session_id)
 
-            # Only remove successfully cleaned sessions
-            for session_id in list(self._sessions.keys()):
+            for session_id in list(sessions.keys()):
                 if session_id not in failed_sessions:
-                    del self._sessions[session_id]
-                    # Clear from cache
-                    if session_id in self._status_cache:
-                        del self._status_cache[session_id]
+                    del sessions[session_id]
+                    status_cache.pop(session_id, None)
 
-        logger.info(f"Strategy sessions cleaned up. Orphaned: {len(self._orphaned_sessions)}")
+        logger.info(f"Strategy sessions cleaned up. Orphaned: {len(self._safe_orphaned_sessions())}")

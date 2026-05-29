@@ -265,7 +265,7 @@ def list_strategy_sessions() -> Dict[str, Any]:
         ...     print(f"{sid}: {info['status']} on {info['exchange']}")
     """
     try:
-        sessions = strategy_manager.list_sessions()
+        sessions = strategy_manager.list_sessions() or {}
         return serialize_model(sessions)
 
     except Exception as e:
